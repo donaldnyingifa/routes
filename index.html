@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Route Trainer · OC operator study app</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0E1626; --sheet:#FBFBF8; --ink:#13202F; --muted:#5E6875; --line:#E3E6EA;
+  --amber:#FFB100; --amber-ink:#7A4B00; --amber-tint:#FFF2D0; --led:#0B0B0B;
+  --ok:#1F8A4C; --ok-tint:#E3F4EA; --bad:#C8301F; --bad-tint:#FBE5E1; --porter:#0E7C86;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--navy);color:var(--ink);font-family:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;line-height:1.3;-webkit-font-smoothing:antialiased;overflow:hidden}
+.app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+.body{flex:1;min-height:0;display:flex;flex-direction:column}
+[hidden]{display:none!important}
+button:focus-visible,select:focus-visible{outline:3px solid var(--amber);outline-offset:2px}
+
+/* header */
+.hd{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:8px 10px;background:var(--navy);color:#fff;flex:none}
+.hd .rt{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:800;font-size:22px;line-height:.9;white-space:nowrap}
+.hd .rt small{display:block;font-family:'Barlow',sans-serif;font-weight:500;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#AEB7C4;margin-top:2px}
+.rsel{order:3;flex:1 1 100%;min-width:0;border:0;border-radius:7px;background:#1D2A3F;color:#fff;font:inherit;font-weight:600;font-size:13px;padding:8px 8px}
+@media (min-width:700px){.rsel{order:0;flex:0 1 auto;max-width:300px}}
+.sign{margin-left:auto;position:relative;display:flex;align-items:center;gap:7px;background:var(--led);border-radius:6px;padding:4px 9px 5px;color:var(--amber);box-shadow:inset 0 0 0 2px #262626;overflow:hidden;border:0;cursor:pointer;font:inherit;flex:none}
+.sign::after{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,transparent 1.1px,#000 1.45px);background-size:4px 4px;pointer-events:none;opacity:.5}
+.sign b{font-family:'VT323','Courier New',monospace;font-weight:400;font-size:24px;line-height:1;text-shadow:0 0 8px rgba(255,177,0,.55)}
+.sign span{font-family:'VT323','Courier New',monospace;font-size:17px;line-height:.95;text-transform:uppercase;text-shadow:0 0 8px rgba(255,177,0,.55)}
+.sign span small{display:block;font-size:11px;opacity:.8}
+
+/* map */
+.mapwrap{position:relative;flex:1;min-height:0}
+#map{position:absolute;inset:0;background:#dfe6ec}
+.leaflet-container{font-family:inherit}
+.banner{position:absolute;left:8px;right:54px;top:8px;z-index:900;background:var(--amber-tint);color:var(--amber-ink);border-left:4px solid var(--amber);padding:6px 10px;font-size:12.5px;border-radius:6px;display:none}
+.legend{position:absolute;left:8px;bottom:22px;z-index:900;background:rgba(251,251,248,.96);border-radius:8px;padding:4px 8px;font-size:11px;line-height:1.5;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.legend .lg-body{display:none;padding-top:4px}
+.legend.open .lg-body{display:block}
+.legend .lg-btn{border:0;background:transparent;font:inherit;font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);cursor:pointer;padding:3px 0}
+.legend div{display:flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:18px;height:5px;border-radius:2px}
+.legend i.dash{background:repeating-linear-gradient(90deg,#13202F 0 4px,transparent 4px 7px);height:3px}
+.legend i.spur{background:repeating-linear-gradient(90deg,var(--porter) 0 4px,transparent 4px 7px);height:3px}
+.mapbtns{position:absolute;right:8px;top:8px;z-index:900;display:flex;flex-direction:column;gap:5px}
+.mapbtn{min-width:38px;height:34px;border:0;border-radius:8px;background:rgba(251,251,248,.96);box-shadow:0 2px 8px rgba(0,0,0,.25);font:inherit;font-weight:700;font-size:11.5px;cursor:pointer;display:grid;place-items:center;color:var(--ink);padding:0 6px}
+.mapbtn[aria-pressed="true"]{background:var(--ink);color:#fff}
+.mapbtn svg{width:19px;height:19px}
+
+/* markers */
+.tm{width:26px;height:26px;border-radius:50%;border:3px solid #fff;color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.45);transition:transform .15s}
+.tm.on{transform:scale(1.35);box-shadow:0 0 0 4px rgba(255,177,0,.6),0 1px 4px rgba(0,0,0,.45)}
+.sm{position:absolute;left:0;top:0;width:max-content;transform:translate(-50%,-50%);min-width:30px;height:30px;padding:0 6px;border-radius:8px;border:3px solid #fff;background:var(--ink);color:#fff;font-weight:800;font-size:13px;display:grid;place-items:center;box-shadow:0 1px 4px rgba(0,0,0,.45);font-family:'Barlow Condensed','Arial Narrow',sans-serif;letter-spacing:.04em;white-space:nowrap;transition:transform .15s}
+.sm.on{transform:translate(-50%,-50%) scale(1.25);box-shadow:0 0 0 4px rgba(255,177,0,.6),0 1px 4px rgba(0,0,0,.45)}
+.lm{position:absolute;left:0;top:0;width:max-content;transform:translate(-7px,-7px);display:flex;align-items:center;gap:4px;white-space:nowrap}
+.lm i{width:14px;height:14px;border-radius:50%;background:#fff;border:3px solid #6B7280;flex:none;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.lm span{font-size:11px;font-weight:600;color:#374151;background:rgba(255,255,255,.85);padding:1px 4px;border-radius:3px}
+.lm.water i{border-color:#2F80C2}
+.hk{position:absolute;left:0;top:0;width:max-content;transform:translate(14px,-30px);font-size:11px;font-weight:700;color:var(--amber-ink);background:var(--amber);padding:2px 6px;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.3);white-space:nowrap}
+.sat .lm span{background:rgba(255,255,255,.92)}
+.sat .stl{color:#0f172a;text-shadow:0 0 4px #fff,0 0 4px #fff,0 0 4px #fff}
+.arr svg{width:18px;height:18px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
+.z-low .arr,.z-low .lm,.z-low .stl,.z-low .pil,.z-low .hk{display:none}
+.z-mid .lm span{display:none}
+.z-mid .hk{display:none}
+.z-low .tm{width:14px;height:14px;font-size:0;border-width:2px;margin:6px}
+.z-low .tm.on{transform:scale(1.6)}
+.chl{position:absolute;left:0;top:0;width:max-content;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:800;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:#fff;padding:2px 7px;border-radius:4px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.stl{position:absolute;left:0;top:0;width:max-content;font-size:11px;font-weight:600;color:#334155;white-space:nowrap;letter-spacing:.02em;text-shadow:0 0 3px #fff,0 0 3px #fff}
+.bus{width:34px;height:34px;border-radius:50%;background:var(--ink);border:3px solid var(--amber);box-shadow:0 0 0 3px rgba(19,32,47,.25),0 2px 6px rgba(0,0,0,.5);display:grid;place-items:center}
+.bus svg{width:20px;height:20px}
+.leaflet-tooltip.tt{font-family:'Barlow',sans-serif;font-size:12.5px;font-weight:600;padding:4px 8px;border-radius:6px}
+
+/* panel */
+.panel{flex:none;background:var(--sheet);border-top:3px solid var(--ink);max-height:46vh;max-height:46dvh;overflow:auto;padding:8px 12px 12px}
+.tabs{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;align-items:center;margin-bottom:8px}
+.tabs .tab{border:2px solid var(--line);background:#fff;color:var(--muted);border-radius:9px;font:inherit;font-weight:700;font-size:13.5px;padding:8px 6px;cursor:pointer}
+.tabs .tab[aria-selected="true"]{border-color:var(--ink);background:var(--ink);color:#fff}
+.mchip{font-size:11px;font-weight:700;color:var(--amber-ink);background:var(--amber-tint);border:1.5px solid var(--amber);border-radius:8px;padding:6px 8px;white-space:nowrap;line-height:1.2;text-align:center}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:#E6E9ED;border-radius:9px;padding:3px;margin-bottom:8px}
+.seg button{border:0;background:transparent;border-radius:7px;padding:7px 6px;font:inherit;font-weight:600;font-size:13px;color:var(--muted);cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--ink);color:#fff}
+.ctl{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.ctl button{border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:8px;font:inherit;font-weight:700;font-size:13px;padding:7px 10px;cursor:pointer;min-height:36px}
+.ctl button.play{background:var(--amber);border-color:var(--amber);flex:1}
+.ctl .spd{display:flex;gap:2px;background:#E6E9ED;border-radius:8px;padding:2px}
+.ctl .spd button{border:0;background:transparent;padding:6px 8px;min-height:32px;font-size:12px}
+.ctl .spd button[aria-pressed="true"]{background:var(--ink);color:#fff;border-radius:6px}
+
+.card{border:2px solid var(--ink);border-radius:12px;padding:8px 10px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;align-items:start;position:relative;overflow:hidden}
+.card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--c,var(--ink))}
+.card .num{grid-row:1/5;width:44px;height:44px;border-radius:50%;background:var(--c,var(--ink));color:#fff;display:grid;place-items:center;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:800;font-size:21px;margin-left:6px}
+.card .num.st{border-radius:10px;font-size:14px}
+.card .eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.14em;color:var(--c,var(--muted))}
+.card .move{display:flex;align-items:center;gap:8px;font-size:19px;font-weight:700;line-height:1.05}
+.card .move svg{width:26px;height:26px;color:var(--c,var(--ink));flex:none}
+.ba{grid-column:1/3;display:flex;align-items:center;gap:7px;margin:2px 0 0 6px;font-size:13.5px;font-weight:600;flex-wrap:wrap}
+.ba .st{background:#EEF1F4;border:1.5px solid var(--line);border-radius:6px;padding:2px 8px}
+.ba .st.now{background:var(--c,var(--ink));border-color:var(--c,var(--ink));color:#fff}
+.ba svg{width:18px;height:18px;color:var(--c,var(--ink))}
+.card .head{font-size:13px;color:var(--ink)}
+.card .head b{font-weight:700}
+.card .hook{grid-column:1/3;margin-left:6px;font-size:12.5px}
+.card .hook em{font-style:normal;font-weight:700;color:var(--amber-ink);background:var(--amber-tint);border-left:3px solid var(--amber);padding:2px 7px;border-radius:0 5px 5px 0}
+.card .note{grid-column:1/3;font-size:12.5px;color:var(--muted);line-height:1.35;padding-left:6px}
+.card .note .bo,.card .note .ap{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;padding:2px 6px;border-radius:3px;margin-right:6px;vertical-align:middle}
+.card .note .bo{color:#fff;background:var(--ink)}
+.card .note .ap{color:var(--amber-ink);background:var(--amber)}
+.card .next{grid-column:1/3;font-size:13px;padding:6px 8px 6px 12px;background:#F1F3F5;border-radius:6px}
+.card .next b{font-weight:700}
+.nav{display:flex;gap:6px;margin-top:8px}
+.nav button{flex:1;border:2px solid var(--ink);background:#fff;color:var(--ink);border-radius:8px;font:inherit;font-weight:700;font-size:13px;padding:8px;cursor:pointer}
+.nav button.ghost{border-color:var(--line);color:var(--muted)}
+.list{margin-top:8px;display:none}
+.list.open{display:block}
+.li{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px}
+.li .n{width:24px;height:24px;border-radius:50%;background:var(--c);color:#fff;font-size:11px;font-weight:700;display:grid;place-items:center}
+.li .n.st{border-radius:6px;font-size:10px}
+.li.on{background:var(--amber-tint)}
+.li .h{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.foot{font-size:10.5px;color:var(--muted);margin:8px 0 0;line-height:1.35}
+
+/* game */
+.gcard{border:2px solid var(--ink);border-radius:12px;padding:10px 12px}
+.gcard h3{margin:0 0 4px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:800;font-size:20px;letter-spacing:.02em}
+.gcard p{margin:0 0 8px;font-size:13.5px;color:var(--muted)}
+.gmeta{display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);margin-bottom:5px}
+.gmeta b{color:var(--ink)}
+.gwhere{font-size:18px;font-weight:600;margin-bottom:8px}
+.gwhere b{border-bottom:3px solid var(--amber)}
+.gopts{display:grid;gap:7px}
+.gopt{border:2px solid var(--line);background:#fff;border-radius:9px;padding:11px 12px;font:inherit;font-weight:600;font-size:15.5px;text-align:left;cursor:pointer;display:flex;gap:9px;align-items:center;color:var(--ink)}
+.gopt .k{font-family:'VT323','Courier New',monospace;font-size:18px;background:var(--ink);color:#fff;border-radius:4px;min-width:24px;text-align:center;padding:2px 0 0;flex:none}
+.gopt:disabled{opacity:.55;cursor:default}
+.gopt.right{border-color:var(--ok);background:var(--ok-tint);opacity:1}
+.gopt.right .k{background:var(--ok)}
+.gopt.wrong{border-color:var(--bad);background:var(--bad-tint);opacity:1}
+.gopt.wrong .k{background:var(--bad)}
+.gfb{margin-top:9px;border-radius:9px;padding:9px 11px;font-size:14px}
+.gfb.ok{background:var(--ok-tint);border-left:4px solid var(--ok)}
+.gfb.bad{background:var(--bad-tint);border-left:4px solid var(--bad)}
+.gfb b{font-weight:700}
+.gfb .hint{display:inline-block;margin-top:5px;font-size:12.5px;color:var(--amber-ink);background:var(--amber-tint);padding:3px 7px;border-radius:5px}
+.gbig{width:100%;border:0;background:var(--amber);color:var(--ink);font:inherit;font-weight:700;font-size:16px;padding:12px;border-radius:9px;cursor:pointer;text-transform:uppercase;letter-spacing:.06em;margin-top:9px}
+.gghost{width:100%;border:2px solid var(--line);background:transparent;color:var(--muted);font:inherit;font-weight:700;font-size:13px;padding:9px;border-radius:9px;cursor:pointer;margin-top:7px}
+.gscore{display:flex;align-items:baseline;gap:8px}
+.gscore .n{font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:800;font-size:52px;line-height:.9}
+.gscore .of{font-size:16px;color:var(--muted);font-weight:600}
+.gstar{font-size:13px;font-weight:700;color:var(--amber-ink);background:var(--amber-tint);border:1.5px solid var(--amber);border-radius:7px;padding:4px 8px;margin-left:auto}
+.gmiss{list-style:none;margin:8px 0 0;padding:0;border-top:1px solid var(--line)}
+.gmiss li{padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.gmiss li b{display:block}
+.gmiss li span{color:var(--muted)}
+
+/* dialog */
+.ovl{position:fixed;inset:0;background:rgba(14,22,38,.72);z-index:2000;display:none;align-items:center;justify-content:center;padding:14px}
+.ovl.open{display:flex}
+.dlg{background:var(--sheet);border-radius:14px;max-width:560px;width:100%;max-height:88vh;overflow:auto;padding:16px}
+.dlg h3{margin:0 0 6px;font-family:'Barlow Condensed','Arial Narrow',sans-serif;font-weight:800;font-size:22px}
+.dlg p{margin:0 0 10px;font-size:13.5px;color:var(--muted);line-height:1.4}
+.dlg textarea{width:100%;height:190px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;border:2px solid var(--line);border-radius:8px;padding:8px;resize:vertical}
+.dlg .err{color:var(--bad);font-size:12.5px;font-weight:600;margin:6px 0;min-height:16px}
+.dlg .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.dlg .row button{border:2px solid var(--ink);background:#fff;border-radius:8px;font:inherit;font-weight:700;font-size:13px;padding:8px 10px;cursor:pointer}
+.dlg .row button.pri{background:var(--amber);border-color:var(--amber)}
+.dlg .cr{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.dlg .cr button{border:1.5px solid var(--bad);color:var(--bad);background:#fff;border-radius:6px;font:inherit;font-size:11.5px;font-weight:700;padding:3px 8px;cursor:pointer}
+@media (min-width:700px){.body{flex-direction:row}.mapwrap{flex:1}.panel{width:392px;max-height:none;border-top:0;border-left:3px solid var(--ink)}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hd">
+    <div class="rt">ROUTE<br>TRAINER<small>study · drive · master</small></div>
+    <select class="rsel" id="routeSel" aria-label="Choose route"></select>
+    <button class="sign" id="sign" type="button" aria-label="Flip direction"><b id="signCode"></b><span id="signDest"></span></button>
+  </div>
+
+  <div class="body">
+  <div class="mapwrap">
+    <div id="map" role="application" aria-label="Route map"></div>
+    <div class="banner" id="banner"></div>
+    <div class="mapbtns">
+      <button class="mapbtn" id="baseBtn" type="button" title="Basemap: streets / satellite / hybrid">Map</button>
+      <button class="mapbtn" id="lblBtn" type="button" title="Street names along the route" aria-pressed="false">Aa</button>
+      <button class="mapbtn" id="hkBtn" type="button" title="Memory hooks" aria-pressed="false">★</button>
+      <button class="mapbtn" id="lmk" type="button" title="Landmarks" aria-pressed="true">L</button>
+      <button class="mapbtn" id="follow" type="button" title="Follow the bus" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/></svg></button>
+      <button class="mapbtn" id="fit" type="button" title="Fit whole route"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="panel">
+    <div class="tabs">
+      <button class="tab" id="tabStudy" aria-selected="true" type="button">Study</button>
+      <button class="tab" id="tabGame" aria-selected="false" type="button">Game</button>
+      <div class="mchip" id="mchip">—</div>
+    </div>
+    <div class="seg" role="tablist" aria-label="Direction">
+      <button role="tab" id="dirOut" aria-selected="true" type="button"></button>
+      <button role="tab" id="dirIn" aria-selected="false" type="button"></button>
+    </div>
+
+    <section id="study">
+      <div class="ctl">
+        <button class="play" id="play" type="button">▶ Drive it</button>
+        <div class="spd" role="group" aria-label="Speed">
+          <button type="button" data-spd="1" aria-pressed="true">1×</button>
+          <button type="button" data-spd="2" aria-pressed="false">2×</button>
+          <button type="button" data-spd="4" aria-pressed="false">4×</button>
+        </div>
+        <button id="reset" type="button" title="Back to start">↺</button>
+      </div>
+      <div class="card" id="card"></div>
+      <div class="nav">
+        <button id="prev" type="button">◀ Prev</button>
+        <button id="next" type="button">Next ▶</button>
+        <button id="toggleList" type="button" class="ghost">All turns</button>
+      </div>
+      <div class="list" id="list"></div>
+    </section>
+
+    <section id="game" hidden></section>
+
+    <p class="foot">Turns sit on verified intersections; lines between them are simplified, and points tagged <em>approx</em> are placed by hand. Where map and route sheet disagree, the sheet wins. Progress and added routes are saved in this browser only.</p>
+  </div>
+  </div>
+</div>
+
+<div class="ovl" id="ovl">
+  <div class="dlg">
+    <h3>Add a route</h3>
+    <p>Paste a route as JSON below. The easiest way to make one: send Claude photos of the next route sheet and ask for "Route Trainer JSON" — every turn gets geocoded for you. Or press <b>Load template</b> to copy the current route's JSON and edit it.</p>
+    <textarea id="routeJson" spellcheck="false" placeholder='{"id":"25","name":"Route 25 · A – B", ...}'></textarea>
+    <div class="err" id="jsonErr"></div>
+    <div class="row">
+      <button class="pri" id="saveRoute" type="button">Validate &amp; save</button>
+      <button id="loadTpl" type="button">Load template</button>
+      <button id="closeDlg" type="button">Close</button>
+    </div>
+    <div id="customList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+"use strict";
+// ---------- safe storage (works on the deployed site / opened file; falls back to memory in locked-down viewers)
+var mem={};
+var store={
+  get:function(k,d){try{var v=localStorage.getItem(k);return v===null?(k in mem?mem[k]:d):JSON.parse(v);}catch(e){return k in mem?mem[k]:d;}},
+  set:function(k,v){mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+};
+
+var PALETTE=['#D0561F','#1F8A4C','#1F5FBF','#7B2D8E','#B8860B','#0E7C86','#A63A6B','#4B5563'];
+var WORD={L:'LEFT on',R:'RIGHT on',S:'STRAIGHT on',LOOP:'LOOP',BEAR:'BEAR LEFT through',END:'END at',START:'START at'};
+var SW='fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"';
+var G={
+  L:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 22V11a3 3 0 0 0-3-3H8" '+SW+'/><path d="M9 3.5 3.5 8 9 12.5z" fill="currentColor"/></svg>',
+  R:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 22V11a3 3 0 0 1 3-3h4" '+SW+'/><path d="M15 3.5 20.5 8 15 12.5z" fill="currentColor"/></svg>',
+  S:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V8" '+SW+'/><path d="M12 2 6.5 8.5h11z" fill="currentColor"/></svg>',
+  BEAR:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 22V14c0-3-2-5-5-7" '+SW+'/><path d="M4.5 3.5 4 10l6-2.5z" fill="currentColor"/></svg>',
+  LOOP:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 8.5A7 7 0 1 0 19 13.5" '+SW+'/><path d="M20.5 5v5.5H15z" fill="currentColor"/></svg>',
+  END:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3" fill="currentColor"/></svg>',
+  START:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg>'
+};
+
+// ---------- built-in Route 19 (OC Transpo · version #03, effective Aug 30 2026)
+var ROUTE19={
+ id:'19', name:'Route 19 · Hurdman – Parliament', builtin:true,
+ sign:{out:{code:'19B',dest:'Parliament',sub:'Parlement'},in:{code:'19E',dest:'Hurdman',sub:'via St-Laurent'}},
+ dirNames:{out:'Hurdman → Parliament',in:'Parliament → Hurdman'},
+ chunkNames:{trainyards:'Trainyards',vanier:'Vanier',lowertown:'Lowertown',downtown:'Downtown'},
+ chunkColors:{trainyards:'#D0561F',vanier:'#1F8A4C',lowertown:'#1F5FBF',downtown:'#7B2D8E'},
+ chunkOffsets:{trainyards:'translate(-50%,90%)',vanier:'translate(25%,-50%)',lowertown:'translate(-118%,-50%)',downtown:'translate(-60%,90%)'},
+ branches:[{name:'Porter Island · request only',pts:[[45.4362374,-75.681976],[45.4364182,-75.6820175],[45.4378456,-75.683211]]}],
+ landmarks:[
+  {n:'St. Laurent Shopping Centre',lat:45.4218665,lng:-75.6387727},
+  {n:'Highway 417 crossing',lat:45.4190,lng:-75.6360},
+  {n:'Gil O. Julien Park',lat:45.4287401,lng:-75.6614061},
+  {n:'Vanier Community Service Centre',lat:45.4365136,lng:-75.6619449},
+  {n:'Shell, 20 Beechwood (washroom 06:00–23:00)',lat:45.439365,lng:-75.676693},
+  {n:'Rideau River · St. Patrick St bridge',lat:45.4378,lng:-75.6795,water:true},
+  {n:'Porter Island · Garry J. Armstrong LTC',lat:45.4378456,lng:-75.683211},
+  {n:'University of Ottawa · Tabaret Hall',lat:45.4245397,lng:-75.6863286},
+  {n:'CF Rideau Centre',lat:45.4251627,lng:-75.6912715},
+  {n:'Rideau Canal',lat:45.4236,lng:-75.6922,water:true},
+  {n:'National Arts Centre',lat:45.4232948,lng:-75.6944079}
+ ],
+ out:[
+  {k:'station',t:'START',lat:45.4121551,lng:-75.6655841,s:'Hurdman Station loop',chunk:'trainyards',bus:true,short:'HURDMAN',label:'Hurdman Station',note:'Loop the station platform road.'},
+  {k:'turn',t:'BEAR',lat:45.4130,lng:-75.6648,s:'Hurdman roadway',chunk:'trainyards',bus:true,approx:true,label:'the lay-up area',hook:'bear left out of the loop',note:'Bear left through the lay-up, then straight on the bus roadway toward Terminal Avenue.'},
+  {k:'turn',t:'L',lat:45.4139,lng:-75.6598,s:'Terminal Ave',chunk:'trainyards',approx:true,label:'Terminal',hook:'bus road ends — go left',note:'The bus roadway meets Terminal Avenue at its west end, along the south side of the rail yards.'},
+  {k:'via',lat:45.414314,lng:-75.6560124,s:'Terminal Ave',chunk:'trainyards'},
+  {k:'via',lat:45.4146449,lng:-75.6516434,s:'Terminal Ave',chunk:'trainyards'},
+  {k:'turn',t:'L',lat:45.4140934,lng:-75.6434165,s:'Trainyards Dr',chunk:'trainyards',label:'Trainyards',hook:'left into the shops',note:'Trainyards shopping district. Belfast is the very next intersection, about 100 m up.'},
+  {k:'turn',t:'R',lat:45.414944,lng:-75.6429023,s:'Belfast Rd',chunk:'trainyards',label:'Belfast',hook:'immediate right at the lights',note:'Belfast runs east about 1 km to St Laurent Blvd.'},
+  {k:'turn',t:'L',lat:45.411816,lng:-75.630518,s:'St Laurent Blvd',chunk:'trainyards',label:'St Laurent Blvd',hook:'T-end of Belfast — left',note:'Heading north. You will cross Tremblay, then pass over the 417.'},
+  {k:'via',lat:45.4177490,lng:-75.6338251,s:'St Laurent Blvd',chunk:'trainyards'},
+  {k:'turn',t:'R',lat:45.41972,lng:-75.63662,s:'station ramp',chunk:'trainyards',bus:true,approx:true,label:'the ramp into St-Laurent Station',hook:'ramp right before the 417',note:'Right-side bus ramp off St Laurent Blvd. St. Laurent Shopping Centre is beside the station.'},
+  {k:'station',t:'LOOP',lat:45.4205696,lng:-75.6378086,s:'station ramp',chunk:'vanier',bus:true,short:'ST-LAURENT',label:'St-Laurent Station',note:'Loop the station, then take the ramp straight out to St Laurent Blvd. Short-turn trips (sign 19A) end here.'},
+  {k:'turn',t:'R',lat:45.42223,lng:-75.63825,s:'St Laurent Blvd',chunk:'vanier',approx:true,label:'St Laurent Blvd',hook:'off ramp, keep north',note:'Off the exit ramp, back onto St Laurent Blvd heading north. Donald is about 750 m ahead.'},
+  {k:'turn',t:'L',lat:45.4288712,lng:-75.6400206,s:'Donald St',chunk:'vanier',label:'Donald',hook:'first left past the mall',note:'Long straight run west across Vanier, about 1.8 km. The return trip does NOT come back this way — it jogs Frances → Queen Mary.'},
+  {k:'via',lat:45.4283749,lng:-75.6477434,s:'Donald St',chunk:'vanier'},
+  {k:'turn',t:'R',lat:45.427279,lng:-75.662965,s:'Vanier Parkway',chunk:'vanier',label:'Vanier Parkway',hook:'right at the ball park',note:'Gil O. Julien Park is on the corner. Short run north to McArthur.'},
+  {k:'turn',t:'R',lat:45.4310093,lng:-75.664058,s:'McArthur Ave',chunk:'vanier',label:'McArthur',hook:'next major right',note:'Only about 280 m on McArthur before Olmstead.'},
+  {k:'turn',t:'L',lat:45.4313356,lng:-75.6605455,s:'Olmstead St',chunk:'vanier',label:'Olmstead',hook:'quick left, small street',note:'North on Olmstead to Montreal Road, about 500 m.'},
+  {k:'turn',t:'R',lat:45.435643,lng:-75.6626763,s:'Montreal Rd',chunk:'vanier',label:'Montreal',hook:'right onto the main drag',note:'Very short: Marier is the next street east, about 125 m.'},
+  {k:'turn',t:'L',lat:45.4362009,lng:-75.66127,s:'Marier Ave',chunk:'vanier',label:'Marier',hook:'next left off Montreal',note:'First of two lefts. Marier runs north past the Vanier Community Service Centre.'},
+  {k:'via',lat:45.4375721,lng:-75.66234,s:'Marier Ave',chunk:'vanier'},
+  {k:'turn',t:'L',lat:45.4387,lng:-75.6631,s:'Marier Ave',chunk:'vanier',approx:true,label:'Marier (again)',hook:'follow the bend left',note:'Second left keeps you on Marier as it bends west. You cross the Vanier Parkway along this stretch.'},
+  {k:'via',lat:45.4412849,lng:-75.6695195,s:'Marier Ave',chunk:'vanier'},
+  {k:'turn',t:'L',lat:45.4421117,lng:-75.6716218,s:'Beechwood Ave',chunk:'vanier',label:'Beechwood',hook:'T at the top — left',note:'Third left in a row. Beechwood heads south-west toward the Rideau River.'},
+  {k:'via',lat:45.4404341,lng:-75.6744774,s:'Beechwood Ave',chunk:'vanier'},
+  {k:'via',lat:45.4398709,lng:-75.6763615,s:'Beechwood Ave',chunk:'vanier'},
+  {k:'turn',t:'S',lat:45.4393226,lng:-75.6770124,s:'St. Patrick St',chunk:'vanier',label:'St. Patrick',hook:'straight at the Shell',note:'At MacKay, by the Shell (washroom, 20 Beechwood). Beechwood becomes St. Patrick and crosses the Rideau River. Porter Island is at the far end of the bridge.'},
+  {k:'turn',t:'L',lat:45.4362374,lng:-75.681976,s:'Cobourg St',chunk:'lowertown',label:'Cobourg',hook:'first left off the bridge',note:'Otherwise-route. If the OC light is lit or someone wants off: RIGHT on Island Lodge instead, serve both stops, RIGHT back on Island Lodge, then STRAIGHT on Cobourg.'},
+  {k:'turn',t:'L',lat:45.4327083,lng:-75.6784985,s:'Tormey St',chunk:'lowertown',label:'Tormey',hook:'one short block — left',note:'One short block east.'},
+  {k:'turn',t:'R',lat:45.4331465,lng:-75.6768207,s:'Charlotte St',chunk:'lowertown',label:'Charlotte',hook:'right, straight south',note:'South on Charlotte through Sandy Hill, about 500 m.'},
+  {k:'turn',t:'R',lat:45.4293466,lng:-75.6734611,s:'Laurier Ave E',chunk:'lowertown',label:'Laurier',hook:'right at the lights',note:'Laurier runs south-west past King Edward and through the University of Ottawa campus (Tabaret Hall) to Nicholas.'},
+  {k:'via',lat:45.4253235,lng:-75.6828976,s:'Laurier Ave E',chunk:'lowertown'},
+  {k:'via',lat:45.4245505,lng:-75.6847367,s:'Laurier Ave E',chunk:'lowertown'},
+  {k:'turn',t:'R',lat:45.423303,lng:-75.6874913,s:'Nicholas St',chunk:'downtown',label:'Nicholas',hook:'right at campus edge',note:'Only about 190 m north on Nicholas to the Mackenzie King Bridge.'},
+  {k:'turn',t:'L',lat:45.4249573,lng:-75.6875773,s:'Mackenzie King Bridge',chunk:'downtown',label:'Mackenzie King',hook:'left beside Rideau Centre',note:'West over the Rideau Canal. Rideau Centre on your right. The bridge lands on Albert Street beside the National Arts Centre.'},
+  {k:'turn',t:'R',lat:45.4225502,lng:-75.6940844,s:'Elgin St',chunk:'downtown',label:'Elgin',hook:'right at the NAC',note:'Straight off the bridge onto Albert, then right on Elgin at the NAC. Queen is the very next street.'},
+  {k:'turn',t:'L',lat:45.4231431,lng:-75.6948245,s:'Queen St',chunk:'downtown',label:'Queen',hook:'next street — left',note:'Final approach: west on Queen. Parliament Station is the O-Train stop on Queen at O\u2019Connor.'},
+  {k:'station',t:'END',lat:45.4214217,lng:-75.6988246,s:'',chunk:'downtown',short:'PARLIAMENT',label:'Parliament Station',note:'End of line, Queen St at O\u2019Connor. Sign 19B Parliament / Parlement.'}
+ ],
+ in:[
+  {k:'station',t:'START',lat:45.42133,lng:-75.69945,s:'Queen St',chunk:'downtown',short:'PARLIAMENT',label:'Parliament Station',note:'From the stop on Queen, heading east to O\u2019Connor. Sign 19E Hurdman via St-Laurent.'},
+  {k:'turn',t:'R',lat:45.4214217,lng:-75.6988246,s:'O\u2019Connor St',chunk:'downtown',exc:true,label:'O\u2019Connor',hook:'right off the layover',note:'Downtown loop is different from the outbound one (one-way streets).'},
+  {k:'turn',t:'L',lat:45.4201987,lng:-75.6977963,s:'Slater St',chunk:'downtown',exc:true,label:'Slater',hook:'one block down — left',note:'Slater is one-way eastbound. Stay in it — it becomes the Mackenzie King Bridge past Elgin.'},
+  {k:'turn',t:'S',lat:45.4219519,lng:-75.6937784,s:'Mackenzie King Bridge',chunk:'downtown',exc:true,label:'Mackenzie King',hook:'straight past the NAC',note:'At Elgin, straight ahead: Slater becomes the bridge. NAC on your left, Rideau Centre ahead on your left, canal below.'},
+  {k:'turn',t:'S',lat:45.4249573,lng:-75.6875773,s:'Waller St',chunk:'downtown',exc:true,label:'Waller',hook:'straight across at bridge end',note:'Continue straight across the Nicholas intersection onto Waller, which curves south to Laurier.'},
+  {k:'turn',t:'L',lat:45.4237453,lng:-75.6866235,s:'Laurier Ave E',chunk:'downtown',exc:true,label:'Laurier',hook:'left at the campus',note:'East on Laurier through the University of Ottawa campus, past Cumberland and King Edward.'},
+  {k:'via',lat:45.4245505,lng:-75.6847367,s:'Laurier Ave E',chunk:'lowertown'},
+  {k:'via',lat:45.4253235,lng:-75.6828976,s:'Laurier Ave E',chunk:'lowertown'},
+  {k:'turn',t:'L',lat:45.4293466,lng:-75.6734611,s:'Charlotte St',chunk:'lowertown',label:'Charlotte',hook:'left at the lights',note:'North on Charlotte, about 500 m to Tormey.'},
+  {k:'turn',t:'L',lat:45.4331465,lng:-75.6768207,s:'Tormey St',chunk:'lowertown',label:'Tormey',hook:'left, one short block',note:'One short block west.'},
+  {k:'turn',t:'R',lat:45.4327083,lng:-75.6784985,s:'Cobourg St',chunk:'lowertown',label:'Cobourg',hook:'right toward the river',note:'North on Cobourg to St. Patrick, about 480 m.'},
+  {k:'turn',t:'R',lat:45.4362374,lng:-75.681976,s:'St. Patrick St',chunk:'vanier',label:'St. Patrick',hook:'right at the bridge',note:'Otherwise-route. If the OC light is lit or someone wants off: STRAIGHT on Island Lodge instead (not right!), serve both stops, RIGHT back on Island Lodge, then LEFT on St Patrick.'},
+  {k:'turn',t:'S',lat:45.4393226,lng:-75.6770124,s:'Beechwood Ave',chunk:'vanier',label:'Beechwood',hook:'straight past the Shell',note:'Over the Rideau River on the St. Patrick Street bridge; the road becomes Beechwood at MacKay. Shell washroom at 20 Beechwood.'},
+  {k:'via',lat:45.4398709,lng:-75.6763615,s:'Beechwood Ave',chunk:'vanier'},
+  {k:'via',lat:45.4404341,lng:-75.6744774,s:'Beechwood Ave',chunk:'vanier'},
+  {k:'turn',t:'R',lat:45.4421117,lng:-75.6716218,s:'Marier Ave',chunk:'vanier',label:'Marier',hook:'right where Beechwood tops out',note:'First of two rights. You cross the Vanier Parkway along this stretch.'},
+  {k:'via',lat:45.4412849,lng:-75.6695195,s:'Marier Ave',chunk:'vanier'},
+  {k:'turn',t:'R',lat:45.4387,lng:-75.6631,s:'Marier Ave',chunk:'vanier',approx:true,label:'Marier (again)',hook:'follow the bend right',note:'Second right keeps you on Marier, now heading south to Montreal Road.'},
+  {k:'via',lat:45.4375721,lng:-75.66234,s:'Marier Ave',chunk:'vanier'},
+  {k:'turn',t:'R',lat:45.4362009,lng:-75.66127,s:'Montreal Rd',chunk:'vanier',label:'Montreal',hook:'T at Montreal — right',note:'Very short: Olmstead is the next street west, about 125 m.'},
+  {k:'turn',t:'L',lat:45.435643,lng:-75.6626763,s:'Olmstead St',chunk:'vanier',label:'Olmstead',hook:'next left, small street',note:'South on Olmstead to McArthur, about 500 m.'},
+  {k:'turn',t:'R',lat:45.4313356,lng:-75.6605455,s:'McArthur Ave',chunk:'vanier',label:'McArthur',hook:'right at the end',note:'About 280 m west to the Vanier Parkway.'},
+  {k:'turn',t:'L',lat:45.4310093,lng:-75.664058,s:'Vanier Parkway',chunk:'vanier',label:'Vanier Parkway',hook:'left at the lights',note:'South to Donald, about 420 m.'},
+  {k:'turn',t:'L',lat:45.427279,lng:-75.662965,s:'Donald St',chunk:'vanier',label:'Donald',hook:'left at the ball park',note:'East on Donald past Gil O. Julien Park, about 1.2 km to Frances.'},
+  {k:'turn',t:'R',lat:45.4283749,lng:-75.6477434,s:'Frances St',chunk:'vanier',exc:true,label:'Frances',hook:'the jog starts — right',note:'NOT a mirror of the outbound. Do not stay on Donald to St Laurent — turn right on Frances.'},
+  {k:'turn',t:'L',lat:45.4255433,lng:-75.6471287,s:'Queen Mary St',chunk:'vanier',exc:true,label:'Queen Mary',hook:'left, one block later',note:'East on Queen Mary to St Laurent, about 680 m.'},
+  {k:'turn',t:'R',lat:45.4261607,lng:-75.6384945,s:'St Laurent Blvd',chunk:'vanier',exc:true,label:'St Laurent',hook:'T — right, head south',note:'South on St Laurent Blvd toward the station and the 417.'},
+  {k:'turn',t:'R',lat:45.42223,lng:-75.63825,s:'station ramp',chunk:'vanier',bus:true,approx:true,label:'the ramp into St-Laurent Station',hook:'ramp right at the mall',note:'Right-side bus ramp. St. Laurent Shopping Centre beside you.'},
+  {k:'station',t:'LOOP',lat:45.4205696,lng:-75.6378086,s:'station ramp',chunk:'trainyards',bus:true,short:'ST-LAURENT',label:'St-Laurent Station',note:'Loop the station, then take the ramp straight out to St Laurent Blvd. Short-turn trips (sign 19A) end here.'},
+  {k:'turn',t:'L',lat:45.41972,lng:-75.63662,s:'St Laurent Blvd',chunk:'trainyards',approx:true,label:'St Laurent Blvd',hook:'off ramp — left, south',note:'Off the exit ramp, left onto St Laurent Blvd heading south over the 417, then past Tremblay.'},
+  {k:'via',lat:45.4177490,lng:-75.6338251,s:'St Laurent Blvd',chunk:'trainyards'},
+  {k:'turn',t:'R',lat:45.411816,lng:-75.630518,s:'Belfast Rd',chunk:'trainyards',label:'Belfast',hook:'right after Tremblay',note:'West on Belfast about 1 km to the Trainyards.'},
+  {k:'turn',t:'L',lat:45.414944,lng:-75.6429023,s:'Trainyards Dr',chunk:'trainyards',label:'Trainyards',hook:'left at the shops',note:'Terminal is the very next intersection, about 100 m.'},
+  {k:'turn',t:'R',lat:45.4140934,lng:-75.6434165,s:'Terminal Ave',chunk:'trainyards',label:'Terminal',hook:'immediate right',note:'West along Terminal beside the rail yards to its far end.'},
+  {k:'via',lat:45.4146449,lng:-75.6516434,s:'Terminal Ave',chunk:'trainyards'},
+  {k:'via',lat:45.414314,lng:-75.6560124,s:'Terminal Ave',chunk:'trainyards'},
+  {k:'turn',t:'R',lat:45.4139,lng:-75.6598,s:'Hurdman roadway',chunk:'trainyards',bus:true,approx:true,label:'the roadway to Hurdman Station',hook:'right onto the bus road',note:'Bus-only roadway from the west end of Terminal down to the station.'},
+  {k:'station',t:'END',lat:45.4121551,lng:-75.6655841,s:'',chunk:'trainyards',short:'HURDMAN',label:'Hurdman Station',note:'Right into the station. End of line.'}
+ ]
+};
+
+var ROUTE20={
+ id:'20', name:'Route 20 · St-Laurent – Rideau', builtin:true,
+ sign:{out:{code:'20B',dest:'Rideau',sub:''},in:{code:'20',dest:'St-Laurent',sub:''}},
+ dirNames:{out:'St-Laurent → Rideau', in:'Rideau → St-Laurent'},
+ chunkNames:{sl:'St-Laurent',montfort:'Montfort',vanier:'Vanier',lowertown:'Lowertown',market:'ByWard / Rideau'},
+ chunkColors:{sl:'#D0561F',montfort:'#B8860B',vanier:'#1F8A4C',lowertown:'#1F5FBF',market:'#7B2D8E'},
+ landmarks:[
+  {n:'St. Laurent Shopping Centre',lat:45.4218665,lng:-75.6387727},
+  {n:'Hôpital Montfort',lat:45.4459685,lng:-75.6393641},
+  {n:'Richelieu-Vanier Community Centre',lat:45.4437568,lng:-75.6597004},
+  {n:'Rideau River · St. Patrick St bridge',lat:45.4378,lng:-75.6795,water:true},
+  {n:'Beechwood / Vanier',lat:45.4400,lng:-75.6690},
+  {n:'ByWard Market',lat:45.4277,lng:-75.6925},
+  {n:'CF Rideau Centre',lat:45.4251627,lng:-75.6912715}
+ ],
+ // ---------- St-Laurent → Rideau
+ out:[
+  {k:'station',t:'START',lat:45.4206356,lng:-75.638121,s:'station ramp',chunk:'sl',bus:true,short:'ST-LAURENT',label:'St-Laurent Station',note:'Straight on the ramp to St Laurent Blvd.'},
+  {k:'turn',t:'R',lat:45.42223,lng:-75.63825,s:'St Laurent Blvd',chunk:'sl',bus:true,approx:true,label:'St Laurent Blvd',hook:'right off the ramp, north',note:'Right onto St Laurent Blvd heading north toward Donald.'},
+  {k:'turn',t:'R',lat:45.4288712,lng:-75.6400206,s:'Donald St',chunk:'sl',label:'Donald',hook:'right at the lights',note:'East on Donald.'},
+  {k:'turn',t:'L',lat:45.4283500,lng:-75.6329230,s:'Cummings Ave',chunk:'sl',label:'Cummings',hook:'left, before the river',note:'North on Cummings up to Montreal Road.'},
+  {k:'turn',t:'R',lat:45.4430700,lng:-75.6409213,s:'Montréal Rd',chunk:'montfort',label:'Montréal',hook:'right onto the main road',note:'East on Montreal Road toward the hospital.'},
+  {k:'turn',t:'L',lat:45.4459685,lng:-75.6393641,s:'Montfort Roadway',chunk:'montfort',approx:true,label:'Montfort Roadway',hook:'left into the hospital',note:'Left onto the Montfort Hospital roadway. Loop the roadway at the main entrance, then straight back out.'},
+  {k:'turn',t:'R',lat:45.4426766,lng:-75.6421018,s:'Montréal Rd',chunk:'montfort',approx:true,label:'Montréal',hook:'right back onto Montréal',note:'Out of the hospital, right onto Montreal Road.'},
+  {k:'turn',t:'R',lat:45.4426766,lng:-75.6421018,s:'Brittany Dr',chunk:'montfort',label:'Brittany',hook:'quick right onto Brittany',note:'North-west on Brittany to St Laurent.'},
+  {k:'turn',t:'L',lat:45.4457819,lng:-75.6495059,s:'St Laurent Blvd',chunk:'montfort',label:'St Laurent',hook:'left onto St Laurent',note:'South-west on St Laurent Blvd back to Montreal Road.'},
+  {k:'turn',t:'R',lat:45.4410642,lng:-75.6467447,s:'Montréal Rd',chunk:'montfort',label:'Montréal',hook:'right at Montréal again',note:'West on Montreal Road to Alfred.'},
+  {k:'turn',t:'R',lat:45.4385895,lng:-75.6544934,s:'Alfred St',chunk:'vanier',label:'Alfred',hook:'right down Alfred',note:'Alfred jogs to Montfort Street.'},
+  {k:'turn',t:'L',lat:45.4396680,lng:-75.6552160,s:'Montfort St',chunk:'vanier',label:'Montfort Street',hook:'left onto Montfort St',note:'West on Montfort Street to Marier.'},
+  {k:'turn',t:'R',lat:45.4387384,lng:-75.6632658,s:'Marier Ave',chunk:'vanier',label:'Marier',hook:'right onto Marier',note:'First of two on Marier.'},
+  {k:'turn',t:'L',lat:45.4399210,lng:-75.6657520,s:'Marier Ave',chunk:'vanier',approx:true,label:'Marier',hook:'follow Marier left',note:'Marier bends — stay on it toward Des Peres Blancs.'},
+  {k:'turn',t:'R',lat:45.4399210,lng:-75.6657520,s:'Des Peres Blancs Ave',chunk:'vanier',approx:true,label:'Des Peres Blancs',hook:'right to the community centre',note:'Loop at the Richelieu-Vanier Community Centre, then straight back on Des Peres Blancs.'},
+  {k:'turn',t:'R',lat:45.4410000,lng:-75.6690000,s:'Marier Ave',chunk:'vanier',approx:true,label:'Marier',hook:'right back onto Marier',note:'North on Marier to Beechwood.'},
+  {k:'turn',t:'L',lat:45.4421117,lng:-75.6716218,s:'Beechwood Ave',chunk:'vanier',label:'Beechwood',hook:'left at the T',note:'South-west on Beechwood toward the river.'},
+  {k:'turn',t:'S',lat:45.4384753,lng:-75.6776845,s:'St Patrick St',chunk:'lowertown',label:'St Patrick',hook:'straight over the bridge',note:'Beechwood becomes St Patrick and crosses the Rideau River.'},
+  {k:'turn',t:'L',lat:45.4362374,lng:-75.6819760,s:'Cobourg St',chunk:'lowertown',label:'Cobourg',hook:'left off the bridge',note:'South on Cobourg one block.'},
+  {k:'turn',t:'R',lat:45.4356009,lng:-75.6817365,s:'Old St Patrick St',chunk:'lowertown',label:'Old St Patrick',hook:'right onto Old St Patrick',note:'West on Old St Patrick to Beausoleil.'},
+  {k:'turn',t:'R',lat:45.4339379,lng:-75.6856295,s:'Beausoleil Dr',chunk:'lowertown',label:'Beausoleil',hook:'right down Beausoleil',note:'Short hop to St Patrick.'},
+  {k:'turn',t:'L',lat:45.4346961,lng:-75.6868006,s:'St Patrick St',chunk:'market',label:'St Patrick',hook:'left back onto St Patrick',note:'West on St Patrick into the ByWard Market.'},
+  {k:'turn',t:'L',lat:45.4308749,lng:-75.6928128,s:'Dalhousie St',chunk:'market',label:'Dalhousie',hook:'left onto Dalhousie',note:'South on Dalhousie through the Market to Rideau.'},
+  {k:'turn',t:'R',lat:45.4271133,lng:-75.6896779,s:'Rideau St',chunk:'market',label:'Rideau',hook:'right onto Rideau',note:'West on Rideau to the station.'},
+  {k:'station',t:'END',lat:45.42626,lng:-75.69159,s:'',chunk:'market',short:'RIDEAU',label:'Rideau Station',note:'End of line. Sign 20B Rideau.'}
+ ],
+ // ---------- Rideau → St-Laurent
+ in:[
+  {k:'station',t:'START',lat:45.42626,lng:-75.69159,s:'Rideau St',chunk:'market',short:'RIDEAU',label:'Rideau Station',note:'From Rideau Station. Sign 20 St-Laurent.'},
+  {k:'turn',t:'L',lat:45.4271133,lng:-75.6896779,s:'Dalhousie St',chunk:'market',label:'Dalhousie',hook:'left onto Dalhousie',note:'North on Dalhousie into the Market.'},
+  {k:'turn',t:'R',lat:45.4302628,lng:-75.6922949,s:'Murray St',chunk:'market',exc:true,label:'Murray',hook:'right onto Murray',note:'East on Murray — the return uses Murray, not St Patrick, on the way up.'},
+  {k:'turn',t:'S',lat:45.4319499,lng:-75.6883376,s:'St Patrick St',chunk:'market',label:'St Patrick',hook:'straight onto St Patrick',note:'Murray feeds straight onto St Patrick heading east.'},
+  {k:'turn',t:'R',lat:45.4346961,lng:-75.6868006,s:'Beausoleil Dr',chunk:'lowertown',label:'Beausoleil',hook:'right onto Beausoleil',note:'Short hop to Old St Patrick.'},
+  {k:'turn',t:'L',lat:45.4339379,lng:-75.6856295,s:'Old St Patrick St',chunk:'lowertown',label:'Old St Patrick',hook:'left onto Old St Patrick',note:'East to Cobourg.'},
+  {k:'turn',t:'L',lat:45.4356009,lng:-75.6817365,s:'Cobourg St',chunk:'lowertown',label:'Cobourg',hook:'left onto Cobourg',note:'North on Cobourg to St Patrick.'},
+  {k:'turn',t:'R',lat:45.4362374,lng:-75.6819760,s:'St Patrick St',chunk:'lowertown',label:'St Patrick',hook:'right toward the bridge',note:'East over the Rideau River.'},
+  {k:'turn',t:'S',lat:45.4384753,lng:-75.6776845,s:'Beechwood Ave',chunk:'vanier',label:'Beechwood',hook:'straight onto Beechwood',note:'St Patrick becomes Beechwood.'},
+  {k:'turn',t:'R',lat:45.4421117,lng:-75.6716218,s:'Marier Ave',chunk:'vanier',label:'Marier',hook:'right onto Marier',note:'South-east on Marier.'},
+  {k:'turn',t:'L',lat:45.4410000,lng:-75.6690000,s:'Des Peres Blancs Ave',chunk:'vanier',approx:true,label:'Des Peres Blancs',hook:'left to the community centre',note:'Loop at the Richelieu-Vanier Community Centre, then straight back on Des Peres Blancs.'},
+  {k:'turn',t:'L',lat:45.4399210,lng:-75.6657520,s:'Marier Ave',chunk:'vanier',approx:true,label:'Marier',hook:'left back onto Marier',note:'Marier bends south.'},
+  {k:'turn',t:'R',lat:45.4387384,lng:-75.6632658,s:'Marier Ave',chunk:'vanier',approx:true,label:'Marier',hook:'follow Marier right',note:'Stay on Marier to Montfort.'},
+  {k:'turn',t:'L',lat:45.4387384,lng:-75.6632658,s:'Montfort St',chunk:'vanier',label:'Montfort',hook:'left onto Montfort',note:'East on Montfort Street to Granville.'},
+  {k:'turn',t:'R',lat:45.4392210,lng:-75.6565509,s:'Granville St',chunk:'vanier',exc:true,label:'Granville',hook:'right onto Granville',note:'Return uses Granville — not Alfred. South to Montreal Road.'},
+  {k:'turn',t:'L',lat:45.4380540,lng:-75.6560360,s:'Montréal Rd',chunk:'montfort',label:'Montréal',hook:'left onto Montréal',note:'East on Montreal Road.'},
+  {k:'turn',t:'L',lat:45.4457819,lng:-75.6495059,s:'St Laurent Blvd',chunk:'montfort',label:'St Laurent',hook:'left onto St Laurent',note:'North to Brittany.'},
+  {k:'turn',t:'R',lat:45.4457819,lng:-75.6495059,s:'Brittany Dr',chunk:'montfort',label:'Brittany',hook:'right onto Brittany',note:'South-east on Brittany.'},
+  {k:'turn',t:'L',lat:45.4426766,lng:-75.6421018,s:'Montréal Rd',chunk:'montfort',label:'Montréal',hook:'left onto Montréal',note:'Toward the hospital roadway.'},
+  {k:'turn',t:'L',lat:45.4459685,lng:-75.6393641,s:'Montfort Roadway',chunk:'montfort',approx:true,label:'Montfort Roadway',hook:'left into the hospital',note:'Loop at the Montfort main entrance, then straight back out.'},
+  {k:'turn',t:'R',lat:45.4430700,lng:-75.6409213,s:'Montréal Rd',chunk:'montfort',approx:true,label:'Montréal',hook:'right back onto Montréal',note:'West on Montreal Road to Cummings.'},
+  {k:'turn',t:'L',lat:45.4430700,lng:-75.6409213,s:'Cummings Ave',chunk:'sl',label:'Cummings',hook:'left onto Cummings',note:'South on Cummings to Donald.'},
+  {k:'turn',t:'R',lat:45.4283500,lng:-75.6329230,s:'Donald St',chunk:'sl',label:'Donald',hook:'right onto Donald',note:'West on Donald to St Laurent.'},
+  {k:'turn',t:'L',lat:45.4288712,lng:-75.6400206,s:'St Laurent Blvd',chunk:'sl',label:'St Laurent',hook:'left onto St Laurent',note:'South toward the station ramp.'},
+  {k:'turn',t:'R',lat:45.42223,lng:-75.63825,s:'station ramp',chunk:'sl',bus:true,approx:true,label:'the ramp into St-Laurent Station',hook:'right into the station',note:'Right on the ramp into St-Laurent Station.'},
+  {k:'station',t:'END',lat:45.4206356,lng:-75.638121,s:'',chunk:'sl',bus:true,short:'ST-LAURENT',label:'St-Laurent Station',note:'End of line.'}
+ ]
+};
+
+var ROUTER2={
+ id:'R2', name:'Route R2 · Bayview – Limebank', builtin:true,
+ sign:{out:{code:'2BBB',dest:'Bayview',sub:'North / Nord'}, in:{code:'2CCA',dest:'Limebank',sub:'South / Sud'}},
+ dirNames:{out:'Limebank → Bayview', in:'Bayview → Limebank'},
+ chunkNames:{south:'Leitrim / Bowesville',parkway:'Airport Pkwy / Transitway',glebe:'Carleton / Bronson',core:'Preston / Bayview'},
+ chunkColors:{south:'#D0561F',parkway:'#B8860B',glebe:'#1F8A4C',core:'#7B2D8E'},
+ landmarks:[
+  {n:'Limebank Station',lat:45.27743,lng:-75.66679},
+  {n:'Bowesville Station',lat:45.2940255,lng:-75.632688},
+  {n:'Leitrim Station · Park & Ride',lat:45.3137235,lng:-75.6313044},
+  {n:'South Keys Station',lat:45.35365,lng:-75.65542},
+  {n:'Billings Bridge Station',lat:45.38481,lng:-75.67681},
+  {n:'Carleton University',lat:45.3840108,lng:-75.6940535},
+  {n:'Bayview Station',lat:45.40917,lng:-75.72211}
+ ],
+ // Limebank → Bayview
+ out:[
+  {k:'station',t:'START',lat:45.2808,lng:-75.6690,s:'Connector Rd',chunk:'south',approx:true,short:'CONNECTOR',label:'Connector Road (EB)',hook:'eastbound to start',note:'From eastbound on the Connector Road.'},
+  {k:'turn',t:'L',lat:45.2805732,lng:-75.6670126,s:'Limebank Rd',chunk:'south',label:'Limebank',hook:'left onto Limebank',note:'North briefly to Earl Armstrong.'},
+  {k:'turn',t:'R',lat:45.2937422,lng:-75.636132,s:'Earl Armstrong Rd',chunk:'south',approx:true,label:'Earl Armstrong',hook:'right onto Earl Armstrong',note:'East toward Bowesville Station.'},
+  {k:'turn',t:'R',lat:45.2951,lng:-75.6320,s:'Bowesville Station',chunk:'south',bus:true,approx:true,label:'Bowesville Station',hook:'right — service stop',note:'Service stop. Continue the station roadway back toward Earl Armstrong.'},
+  {k:'turn',t:'L',lat:45.2937422,lng:-75.636132,s:'Earl Armstrong Rd',chunk:'south',approx:true,label:'Earl Armstrong',hook:'left back onto Earl Armstrong',note:'West to Bowesville Road.'},
+  {k:'turn',t:'R',lat:45.2937422,lng:-75.636132,s:'Bowesville Rd',chunk:'south',label:'Bowesville',hook:'right onto Bowesville',note:'North to Leitrim.'},
+  {k:'turn',t:'R',lat:45.3103466,lng:-75.6470933,s:'Leitrim Rd',chunk:'south',label:'Leitrim',hook:'right onto Leitrim',note:'East to Gilligan.'},
+  {k:'turn',t:'R',lat:45.3173796,lng:-75.6304046,s:'Gilligan Rd',chunk:'south',label:'Gilligan',hook:'right onto Gilligan',note:'South toward Leitrim Station.'},
+  {k:'turn',t:'R',lat:45.3137235,lng:-75.6313044,s:'Station Access Rd',chunk:'south',bus:true,approx:true,label:'Station Access Roadway',hook:'right into the station',note:'Right on Station Access Roadway, then right on the Bus Loop Access Roadway. Loop the Leitrim bus loop (service stop), then continue toward the Station Access Roadway.'},
+  {k:'turn',t:'L',lat:45.3140,lng:-75.6318,s:'Station Access Rd',chunk:'south',bus:true,approx:true,label:'Station Access Roadway',hook:'left out of the loop',note:'Left on Station Access Roadway.'},
+  {k:'turn',t:'L',lat:45.3173796,lng:-75.6304046,s:'Gilligan Rd',chunk:'south',approx:true,label:'Gilligan',hook:'left onto Gilligan',note:'Back up Gilligan.'},
+  {k:'turn',t:'R',lat:45.3203676,lng:-75.6236884,s:'Leitrim Rd',chunk:'south',approx:true,label:'Leitrim',hook:'right onto Leitrim',note:'East to Albion.'},
+  {k:'turn',t:'L',lat:45.3203676,lng:-75.6236884,s:'Albion Rd',chunk:'south',label:'Albion',hook:'left onto Albion',note:'North to Lester.'},
+  {k:'turn',t:'L',lat:45.337712,lng:-75.6337055,s:'Lester Rd',chunk:'south',label:'Lester',hook:'left onto Lester',note:'West toward the Airport Parkway ramp.'},
+  {k:'turn',t:'R',lat:45.329430,lng:-75.649860,s:'Airport Parkway',chunk:'parkway',bus:true,approx:true,label:'ramp to Airport Parkway',hook:'right onto the Parkway',note:'Ramp to the Airport Parkway; continue north on the Parkway.'},
+  {k:'turn',t:'R',lat:45.3444529,lng:-75.6664699,s:'Hunt Club Rd',chunk:'parkway',approx:true,label:'Hunt Club',hook:'right onto Hunt Club',note:'East to the Transitway.'},
+  {k:'turn',t:'R',lat:45.3500,lng:-75.6600,s:'Transitway NB',chunk:'parkway',bus:true,approx:true,label:'Transitway northbound',hook:'right onto the Transitway',note:'Northbound busway. Continue to South Keys Station, then continue northbound.'},
+  {k:'via',lat:45.35365,lng:-75.65542,s:'Transitway NB',chunk:'parkway'},
+  {k:'via',lat:45.3700,lng:-75.6720,s:'Transitway NB',chunk:'parkway'},
+  {k:'turn',t:'L',lat:45.3820,lng:-75.6770,s:'Billings roadway',chunk:'parkway',bus:true,approx:true,label:'roadway at Billings Bridge',hook:'left at Billings Bridge',note:'Left on the roadway at Billings Bridge, then left on the roadway to the Data Centre roadway.'},
+  {k:'turn',t:'R',lat:45.3775613,lng:-75.6809429,s:'Heron Rd',chunk:'glebe',approx:true,label:'Heron',hook:'right onto Heron',note:'West on Heron to the Bronson ramp.'},
+  {k:'turn',t:'R',lat:45.3851107,lng:-75.6902142,s:'Bronson Ave',chunk:'glebe',approx:true,label:'ramp to Bronson',hook:'right onto Bronson',note:'Ramp to Bronson; continue north on Bronson.'},
+  {k:'turn',t:'L',lat:45.3851107,lng:-75.6902142,s:'Raven Ave',chunk:'glebe',label:'Raven',hook:'left onto Raven',note:'Into the Carleton campus.'},
+  {k:'turn',t:'R',lat:45.3840108,lng:-75.6940535,s:'University Dr',chunk:'glebe',label:'University',hook:'right onto University',note:'Through campus — right again to stay on University.'},
+  {k:'turn',t:'R',lat:45.3900056,lng:-75.6937944,s:'University Dr',chunk:'glebe',approx:true,label:'University (stay on)',hook:'right to stay on University',note:'Follow University north to Bronson.'},
+  {k:'turn',t:'L',lat:45.3900056,lng:-75.6937944,s:'Bronson Ave',chunk:'glebe',label:'Bronson',hook:'left back onto Bronson',note:'North to Carling.'},
+  {k:'turn',t:'L',lat:45.4010216,lng:-75.6996868,s:'Carling Ave',chunk:'core',label:'Carling',hook:'left onto Carling',note:'West to Preston.'},
+  {k:'turn',t:'R',lat:45.3974842,lng:-75.7076391,s:'Preston St',chunk:'core',label:'Preston',hook:'right onto Preston',note:'North on Preston to Albert.'},
+  {k:'turn',t:'L',lat:45.4114765,lng:-75.7160979,s:'Albert St',chunk:'core',label:'Albert',hook:'left onto Albert',note:'West on Albert to the Bayview bus bay.'},
+  {k:'station',t:'END',lat:45.40917,lng:-75.72211,s:'',chunk:'core',short:'BAYVIEW',label:'Bayview Station',note:'End of line. Sign 2BBB Bayview North.'}
+ ],
+ // Bayview → Limebank
+ in:[
+  {k:'station',t:'START',lat:45.40917,lng:-75.72211,s:'Albert St',chunk:'core',short:'BAYVIEW',label:'Bayview Station',hook:'out on Albert',note:'From Bayview Station on Albert, continue Albert.'},
+  {k:'turn',t:'L',lat:45.4075,lng:-75.7205,s:'Bayswater Ave',chunk:'core',approx:true,label:'Bayview / Bayswater',hook:'left, becomes Bayswater',note:'Left on Bayview, continue as Bayswater.'},
+  {k:'turn',t:'L',lat:45.4055,lng:-75.7175,s:'Somerset St W',chunk:'core',approx:true,label:'Somerset',hook:'left onto Somerset',note:'East to Preston.'},
+  {k:'turn',t:'R',lat:45.4083665,lng:-75.7142058,s:'Preston St',chunk:'core',label:'Preston',hook:'right onto Preston',note:'South on Preston to Carling.'},
+  {k:'turn',t:'L',lat:45.3974842,lng:-75.7076391,s:'Carling Ave',chunk:'core',label:'Carling',hook:'left onto Carling',note:'East to Bronson.'},
+  {k:'turn',t:'R',lat:45.4010216,lng:-75.6996868,s:'Bronson Ave',chunk:'glebe',label:'Bronson',hook:'right onto Bronson',note:'South, over the rail corridor, on University.'},
+  {k:'turn',t:'R',lat:45.3900056,lng:-75.6937944,s:'University Dr',chunk:'glebe',label:'University',hook:'right onto University',note:'Pass over the rail corridor into campus.'},
+  {k:'turn',t:'L',lat:45.3857197,lng:-75.696376,s:'Campus Ave',chunk:'glebe',approx:true,label:'Campus (at stop sign)',hook:'left onto Campus',note:'Continue Campus under the rail overpass — it becomes University.'},
+  {k:'turn',t:'R',lat:45.3851107,lng:-75.6902142,s:'Raven Ave',chunk:'glebe',approx:true,label:'Raven',hook:'right onto Raven',note:'To Bronson.'},
+  {k:'turn',t:'R',lat:45.3851107,lng:-75.6902142,s:'Bronson Ave',chunk:'glebe',label:'Bronson',hook:'right onto Bronson',note:'South to Heron.'},
+  {k:'turn',t:'L',lat:45.3775613,lng:-75.6809429,s:'Heron Rd',chunk:'glebe',approx:true,label:'Heron',hook:'left onto Heron',note:'East to the Data Centre roadway.'},
+  {k:'turn',t:'L',lat:45.3800,lng:-75.6780,s:'Data Centre Rd',chunk:'parkway',bus:true,approx:true,label:'Data Centre roadway',hook:'left onto Data Centre',note:'To Billings Bridge Station.'},
+  {k:'turn',t:'R',lat:45.38481,lng:-75.67681,s:'Billings Bridge Station',chunk:'parkway',bus:true,approx:true,label:'Billings Bridge Station',hook:'right into the station',note:'Right on the ramp to the Transitway.'},
+  {k:'turn',t:'R',lat:45.3820,lng:-75.6760,s:'Transitway SB',chunk:'parkway',bus:true,approx:true,label:'ramp to Transitway',hook:'right onto the Transitway',note:'To South Keys Station, continue Transitway.'},
+  {k:'via',lat:45.35365,lng:-75.65542,s:'Transitway SB',chunk:'parkway'},
+  {k:'turn',t:'R',lat:45.3444529,lng:-75.6664699,s:'Hunt Club Rd',chunk:'parkway',approx:true,label:'Hunt Club',hook:'right onto Hunt Club',note:'To the Airport Parkway.'},
+  {k:'turn',t:'L',lat:45.329430,lng:-75.649860,s:'Airport Parkway',chunk:'parkway',bus:true,approx:true,label:'Airport Parkway',hook:'left onto the Parkway',note:'South to the Uplands/Lester ramp.'},
+  {k:'turn',t:'R',lat:45.337712,lng:-75.6337055,s:'Lester Rd',chunk:'south',approx:true,label:'ramp to Uplands/Lester',hook:'right to Lester',note:'Ramp to Uplands/Lester, then left on Lester.'},
+  {k:'turn',t:'L',lat:45.337712,lng:-75.6337055,s:'Lester Rd',chunk:'south',approx:true,label:'Lester',hook:'left onto Lester',note:'East to Albion.'},
+  {k:'turn',t:'R',lat:45.3203676,lng:-75.6236884,s:'Albion Rd',chunk:'south',label:'Albion',hook:'right onto Albion',note:'South to Leitrim.'},
+  {k:'turn',t:'R',lat:45.3203676,lng:-75.6236884,s:'Leitrim Rd',chunk:'south',label:'Leitrim',hook:'right onto Leitrim',note:'West to Gilligan.'},
+  {k:'turn',t:'L',lat:45.3173796,lng:-75.6304046,s:'Gilligan Rd',chunk:'south',label:'Gilligan',hook:'left onto Gilligan',note:'To the station access.'},
+  {k:'turn',t:'R',lat:45.3137235,lng:-75.6313044,s:'Station Access Rd',chunk:'south',bus:true,approx:true,label:'Station Access Roadway',hook:'right into the station',note:'Right on Station Access Roadway, then right on Bus Loop Access Roadway. Loop the Leitrim bus loop (service stop), continue toward Station Access Roadway.'},
+  {k:'turn',t:'L',lat:45.3140,lng:-75.6318,s:'Station Access Rd',chunk:'south',bus:true,approx:true,label:'Station Access Roadway',hook:'left out of the loop',note:'Left on Station Access Roadway.'},
+  {k:'turn',t:'L',lat:45.3173796,lng:-75.6304046,s:'Gilligan Rd',chunk:'south',approx:true,label:'Gilligan',hook:'left onto Gilligan',note:'To Leitrim.'},
+  {k:'turn',t:'L',lat:45.3103466,lng:-75.6470933,s:'Leitrim Rd',chunk:'south',approx:true,label:'Leitrim',hook:'left onto Leitrim',note:'West to Bowesville.'},
+  {k:'turn',t:'L',lat:45.2937422,lng:-75.636132,s:'Bowesville Rd',chunk:'south',label:'Bowesville',hook:'left onto Bowesville',note:'South to Earl Armstrong.'},
+  {k:'turn',t:'L',lat:45.2937422,lng:-75.636132,s:'Earl Armstrong Rd',chunk:'south',label:'Earl Armstrong',hook:'left onto Earl Armstrong',note:'To Bowesville Station.'},
+  {k:'turn',t:'R',lat:45.2951,lng:-75.6320,s:'Bowesville Station',chunk:'south',bus:true,approx:true,label:'Bowesville Station',hook:'right — service stop',note:'Service stop. Continue station roadway toward Earl Armstrong.'},
+  {k:'turn',t:'L',lat:45.2937422,lng:-75.636132,s:'Earl Armstrong Rd',chunk:'south',approx:true,label:'Earl Armstrong',hook:'left onto Earl Armstrong',note:'West to Limebank.'},
+  {k:'turn',t:'L',lat:45.2805732,lng:-75.6670126,s:'Limebank Rd',chunk:'south',label:'Limebank',hook:'left onto Limebank',note:'Right on the bus-only roadway to Limebank Station.'},
+  {k:'station',t:'END',lat:45.27743,lng:-75.66679,s:'',chunk:'south',bus:true,short:'LIMEBANK',label:'Limebank Station',note:'End of line. Sign 2CCA Limebank South.'}
+ ]
+};
+
+var ROUTE35={
+ id:'35', name:"Route 35 · Blair / Place d'Orléans – Avalon", builtin:true,
+ sign:{out:{code:'35A',dest:'Blair',sub:''}, in:{code:'35D',dest:'Avalon',sub:''}},
+ dirNames:{out:'Avalon → Blair', in:'Blair → Avalon'},
+ chunkNames:{avalon:'Avalon',orleans:"Place d'Orléans",hwy:'Highway 174',blair:'Blair'},
+ chunkColors:{avalon:'#1F8A4C',orleans:'#B8860B',hwy:'#7B2D8E',blair:'#1F5FBF'},
+ landmarks:[
+  {n:"Place d'Orléans Station & mall",lat:45.4790515,lng:-75.5125695},
+  {n:'Blair Station',lat:45.43123,lng:-75.60851},
+  {n:'Ottawa River',lat:45.4870,lng:-75.5100,water:true}
+ ],
+ // Avalon (Sweetvalley) → Blair
+ out:[
+  {k:'station',t:'START',lat:45.4437,lng:-75.4792,s:'Sweetvalley Dr',chunk:'avalon',approx:true,short:'AVALON',label:'Sweetvalley / Henslow\u2019s Circle',hook:'north leg — go',note:"From Sweetvalley Dr / Henslow's Circle (north leg), continue Sweetvalley."},
+  {k:'turn',t:'L',lat:45.4449084,lng:-75.4785816,s:'Tenth Line Rd',chunk:'avalon',label:'Tenth Line',hook:'left onto Tenth Line',note:'North briefly.'},
+  {k:'turn',t:'R',lat:45.4449084,lng:-75.4785816,s:'Harvest Valley Ave',chunk:'avalon',label:'Harvest Valley',hook:'right onto Harvest Valley',note:'East, becomes Esprit.'},
+  {k:'turn',t:'L',lat:45.4644738,lng:-75.4764364,s:'Orchardview Ave',chunk:'avalon',approx:true,label:'Esprit → Orchardview',hook:'left, continue Orchardview',note:'Left on Esprit, continue Orchardview.'},
+  {k:'turn',t:'L',lat:45.4687763,lng:-75.4865019,s:'Bottriell Way',chunk:'avalon',approx:true,label:'Gardenway → Bottriell',hook:'left, continue Bottriell',note:'Left on Gardenway, continue Bottriell.'},
+  {k:'turn',t:'L',lat:45.4773109,lng:-75.4974997,s:'Tompkins Ave',chunk:'orleans',approx:true,label:'Charlemagne → Tompkins',hook:'left, continue Tompkins',note:'Left on Charlemagne, continue Tompkins.'},
+  {k:'turn',t:'R',lat:45.476823,lng:-75.5011633,s:'Prestone Dr',chunk:'orleans',label:'Prestone',hook:'right onto Prestone',note:'To Centrum.'},
+  {k:'turn',t:'L',lat:45.4809378,lng:-75.5091867,s:'Centrum Blvd',chunk:'orleans',approx:true,label:'Centrum',hook:'left onto Centrum',note:'West to Place d\u2019Orléans Dr.'},
+  {k:'turn',t:'R',lat:45.4788814,lng:-75.5130096,s:"Place d'Orléans Dr",chunk:'orleans',label:"Place d'Orléans Dr",hook:'right onto Place d\u2019Orléans Dr',note:'To the station western access.'},
+  {k:'turn',t:'L',lat:45.4790515,lng:-75.5125695,s:'station roadway',chunk:'orleans',bus:true,approx:true,label:"Place d'Orléans Station",hook:'left into the station',note:'Left on the western access; loop to the south side, continue to the west end of the station.'},
+  {k:'turn',t:'R',lat:45.4792735,lng:-75.5176984,s:"Place d'Orléans Dr",chunk:'orleans',approx:true,label:"Place d'Orléans Dr",hook:'right out of station',note:'To Champlain.'},
+  {k:'turn',t:'L',lat:45.4792735,lng:-75.5176984,s:'Champlain St',chunk:'orleans',label:'Champlain',hook:'left onto Champlain',note:'To the Park & Ride and the Hwy 174 WB ramp.'},
+  {k:'turn',t:'R',lat:45.4860,lng:-75.5230,s:'Hwy 174 WB',chunk:'hwy',bus:true,approx:true,label:'ramp to Hwy 174 WB',hook:'right onto the 174',note:'Left through the Park & Ride to the service stop, then right on the ramp to Hwy 174 westbound.'},
+  {k:'via',lat:45.4750,lng:-75.5450,s:'Hwy 174 WB',chunk:'hwy'},
+  {k:'via',lat:45.4640,lng:-75.5700,s:'Hwy 174 WB',chunk:'hwy'},
+  {k:'via',lat:45.4530,lng:-75.5950,s:'Hwy 174 WB',chunk:'hwy'},
+  {k:'turn',t:'R',lat:45.435244,lng:-75.608901,s:'Blair mall roadway',chunk:'blair',bus:true,approx:true,label:'off-ramp to Blair Rd',hook:'off-ramp to Blair',note:'Off-ramp to Blair Rd, continue the mall roadway; left on the bus-only roadway to Blair Station.'},
+  {k:'station',t:'END',lat:45.43123,lng:-75.60851,s:'',chunk:'blair',bus:true,short:'BLAIR',label:'Blair Station',note:'North platform, then left on south platform roadway. Sign 35A Blair.'}
+ ],
+ // Blair → Avalon (Sweetvalley)
+ in:[
+  {k:'station',t:'START',lat:45.4320,lng:-75.6082,s:'Blair mall roadway',chunk:'blair',bus:true,short:'BLAIR',label:'Blair Station',hook:'south platform out',note:'From Blair Station south platform; left on the first roadway in front of the east lay-up, right on the mall roadway.'},
+  {k:'turn',t:'R',lat:45.435244,lng:-75.608901,s:'Blair Rd',chunk:'blair',approx:true,label:'Blair Rd',hook:'right onto Blair Rd',note:'To the Hwy 174 EB ramp.'},
+  {k:'turn',t:'L',lat:45.4380,lng:-75.6060,s:'Hwy 174 EB',chunk:'hwy',bus:true,approx:true,label:'ramp to Hwy 174 EB',hook:'left onto the 174',note:'East on Highway 174 toward Orléans.'},
+  {k:'via',lat:45.4530,lng:-75.5950,s:'Hwy 174 EB',chunk:'hwy'},
+  {k:'via',lat:45.4640,lng:-75.5700,s:'Hwy 174 EB',chunk:'hwy'},
+  {k:'via',lat:45.4750,lng:-75.5450,s:'Hwy 174 EB',chunk:'hwy'},
+  {k:'turn',t:'R',lat:45.4788814,lng:-75.5130096,s:"Place d'Orléans Dr",chunk:'orleans',bus:true,approx:true,label:"off-ramp to Place d'Orléans",hook:'exit to the station',note:"Exit at the off-ramps to Montréal Rd, Jeanne d'Arc, then Place d'Orléans Dr; continue to Place d'Orléans Station."},
+  {k:'turn',t:'L',lat:45.4792735,lng:-75.5176984,s:'Champlain St',chunk:'orleans',label:'Champlain',hook:'left onto Champlain',note:'To Place d\u2019Orléans Dr.'},
+  {k:'turn',t:'R',lat:45.4792735,lng:-75.5176984,s:"Place d'Orléans Dr",chunk:'orleans',label:"Place d'Orléans Dr",hook:'right onto Place d\u2019Orléans Dr',note:'To Centrum.'},
+  {k:'turn',t:'L',lat:45.4788814,lng:-75.5130096,s:'Centrum Blvd',chunk:'orleans',label:'Centrum',hook:'left onto Centrum',note:'To Prestone.'},
+  {k:'turn',t:'R',lat:45.4809378,lng:-75.5091867,s:'Prestone Dr',chunk:'orleans',approx:true,label:'Prestone',hook:'right onto Prestone',note:'To Tompkins/Charlemagne.'},
+  {k:'turn',t:'L',lat:45.476823,lng:-75.5011633,s:'Charlemagne Blvd',chunk:'orleans',approx:true,label:'Tompkins → Charlemagne',hook:'left, continue Charlemagne',note:'Left on Tompkins, continue Charlemagne.'},
+  {k:'turn',t:'R',lat:45.4773109,lng:-75.4974997,s:'Bottriell Way',chunk:'avalon',approx:true,label:'Bottriell → Gardenway',hook:'right, continue Gardenway',note:'Right on Bottriell, continue Gardenway.'},
+  {k:'turn',t:'R',lat:45.4687763,lng:-75.4865019,s:'Orchardview Ave',chunk:'avalon',approx:true,label:'Orchardview → Esprit',hook:'right, continue Esprit',note:'Right on Orchardview, continue Esprit.'},
+  {k:'turn',t:'R',lat:45.4644738,lng:-75.4764364,s:'Harvest Valley Ave',chunk:'avalon',approx:true,label:'Harvest Valley → Sweetvalley',hook:'right, continue Sweetvalley',note:'Right on Harvest Valley, continue Sweetvalley to the Sweetvalley / Tenth Line stop.'},
+  {k:'station',t:'END',lat:45.4449084,lng:-75.4785816,s:'',chunk:'avalon',short:'AVALON',label:'Sweetvalley / Tenth Line',note:'End of line. Sign 35D Avalon.'}
+ ]
+};
+
+// ---------- geometry
+var RAD=6371000,D=Math.PI/180;
+function dist(a,b){var p1=a.lat*D,p2=b.lat*D,dp=(b.lat-a.lat)*D,dl=(b.lng-a.lng)*D;var h=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);return 2*RAD*Math.asin(Math.sqrt(h));}
+function bearing(a,b){var p1=a.lat*D,p2=b.lat*D,dl=(b.lng-a.lng)*D;var y=Math.sin(dl)*Math.cos(p2);var x=Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl);return (Math.atan2(y,x)/D+360)%360;}
+function compass(b){return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'][Math.round(b/22.5)%16];}
+function compassWord(b){return ['NORTH','NORTH-EAST','EAST','SOUTH-EAST','SOUTH','SOUTH-WEST','WEST','NORTH-WEST'][Math.round(b/45)%8];}
+function fmt(m){return m>=950?(m/1000).toFixed(1)+' km':Math.round(m/10)*10+' m';}
+function lerp(a,b,f){return {lat:a.lat+(b.lat-a.lat)*f,lng:a.lng+(b.lng-a.lng)*f};}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function shuffle(a){a=a.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+
+// ---------- routes registry
+function customRoutes(){return store.get('rt.routes',[]);}
+function allRoutes(){return [ROUTE19,ROUTE20,ROUTER2,ROUTE35].concat(customRoutes());}
+function findRoute(id){var r=allRoutes().filter(function(x){return x.id===id;});return r[0]||ROUTE19;}
+function routeColors(r){
+  if(r._cc)return r._cc;
+  var cc={},i=0,seen=[];
+  ['out','in'].forEach(function(d){(r[d]||[]).forEach(function(p){if(seen.indexOf(p.chunk)<0)seen.push(p.chunk);});});
+  seen.forEach(function(c){cc[c]=(r.chunkColors&&r.chunkColors[c])||PALETTE[i++%PALETTE.length];});
+  r._cc=cc;return cc;
+}
+function chunkName(r,c){return (r.chunkNames&&r.chunkNames[c])||c;}
+function validateRoute(o){
+  if(!o||typeof o!=='object')return 'Not a JSON object.';
+  if(!o.id||!o.name)return 'Missing "id" or "name".';
+  if([ROUTE19,ROUTE20,ROUTER2,ROUTE35].some(function(r){return r.id===o.id;}))return 'That id belongs to a built-in route.';
+  if(!Array.isArray(o.out)||o.out.length<2)return '"out" must be an array of at least 2 points.';
+  var dirs=['out'];if(o['in'])dirs.push('in');
+  for(var di=0;di<dirs.length;di++){var arr=o[dirs[di]];
+    if(!Array.isArray(arr))return '"'+dirs[di]+'" must be an array.';
+    for(var i=0;i<arr.length;i++){var p=arr[i];
+      if(typeof p.lat!=='number'||typeof p.lng!=='number')return dirs[di]+'['+i+']: lat/lng must be numbers.';
+      if(['station','turn','via'].indexOf(p.k)<0)return dirs[di]+'['+i+']: k must be station, turn or via.';
+      if(p.k!=='via'&&!WORD[p.t])return dirs[di]+'['+i+']: t must be one of L R S LOOP BEAR START END.';
+      if(!p.chunk)return dirs[di]+'['+i+']: missing chunk.';
+    }
+  }
+  return null;
+}
+
+// ---------- app state
+var route=findRoute(store.get('rt.prefs',{}).route||'19');
+var dir=store.get('rt.prefs',{}).dir||'out';
+var base=store.get('rt.prefs',{}).base||'map';
+var mode='study';
+var pts=[],steps=[],cum=[],total=0,cur=0;
+var layers=L.layerGroup(),lmLayer=L.layerGroup(),hkLayer=L.layerGroup(),streetLabels=L.layerGroup(),markers=[];
+var busMarker=null,driving=false,progress=0,speed=1,follow=true,raf=null,lastT=0,driveTarget=null,driveCb=null;
+var BASE_SPD=90;
+var labelsManual=null; // null = auto
+function savePrefs(){store.set('rt.prefs',{route:route.id,dir:dir,base:base});}
+
+var map=L.map('map',{zoomControl:false,attributionControl:false,tap:false,zoomSnap:0.1,zoomDelta:0.5,wheelPxPerZoomLevel:90});
+function zoomClass(){var z=map.getZoom(),el=map.getContainer();el.classList.toggle('z-low',z<14);el.classList.toggle('z-mid',z>=14&&z<15.4);}
+map.on('zoomend',zoomClass);
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.control.attribution({position:'bottomright',prefix:false}).addTo(map);
+
+// ---------- basemaps: streets / satellite / hybrid, with schematic fallback
+var CARTO={url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',attr:'&copy; OpenStreetMap contributors &copy; CARTO',sub:'abcd'};
+var OSM={url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'&copy; OpenStreetMap contributors',sub:'abc'};
+var ESRI={url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',attr:'Tiles &copy; Esri &mdash; Esri, Maxar, Earthstar Geographics'};
+var CARTO_LBL={url:'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',attr:'',sub:'abcd'};
+var BASES={map:{name:'Map',layers:[CARTO],fallback:[OSM]},sat:{name:'Sat',layers:[ESRI]},hyb:{name:'Hyb',layers:[ESRI,CARTO_LBL]}};
+var tileLayers=[],tileLoads=0,schematic=false,usedFallback=false;
+function showBanner(t){var b=document.getElementById('banner');b.textContent=t;b.style.display='block';}
+function hideBanner(){document.getElementById('banner').style.display='none';}
+function setBase(key,keepManual){
+  base=key;savePrefs();
+  document.getElementById('baseBtn').textContent=BASES[key].name;
+  map.getContainer().classList.toggle('sat',key!=='map');
+  tileLayers.forEach(function(t){map.removeLayer(t);});
+  tileLayers=[];tileLoads=0;usedFallback=false;
+  if(schematic){schematic=false;hideBanner();}
+  BASES[key].layers.forEach(function(cfg){
+    var t=L.tileLayer(cfg.url,{attribution:cfg.attr,subdomains:cfg.sub||'abc',maxZoom:19});
+    t.on('tileload',function(){tileLoads++;if(schematic){schematic=false;hideBanner();}});
+    t.addTo(map);tileLayers.push(t);
+  });
+  setTimeout(function(){
+    if(tileLoads===0){
+      if(key==='map'&&!usedFallback){
+        usedFallback=true;
+        tileLayers.forEach(function(t){map.removeLayer(t);});
+        var t=L.tileLayer(OSM.url,{attribution:OSM.attr,subdomains:OSM.sub,maxZoom:19});
+        t.on('tileload',function(){tileLoads++;if(schematic){schematic=false;hideBanner();}});
+        t.addTo(map);tileLayers=[t];
+        setTimeout(function(){if(tileLoads===0)enterSchematic();},4500);
+      }else enterSchematic();
+    }
+  },4500);
+  if(!keepManual)labelsManual=null;
+  applyLabels();
+}
+function enterSchematic(){
+  schematic=true;
+  tileLayers.forEach(function(t){map.removeLayer(t);});tileLayers=[];
+  document.getElementById('map').style.background='#EEF2F5';
+  showBanner('Tiles could not load here — showing the route on a plain background. Street names stay on.');
+  applyLabels();
+}
+function labelsOn(){return labelsManual===null?(schematic||base==='sat'):labelsManual;}
+function applyLabels(){
+  var on=labelsOn();
+  document.getElementById('lblBtn').setAttribute('aria-pressed',on?'true':'false');
+  if(on){buildStreetLabels();streetLabels.addTo(map);}else map.removeLayer(streetLabels);
+}
+function buildStreetLabels(){
+  streetLabels.clearLayers();
+  var seen={};
+  for(var i=0;i<pts.length-1;i++){
+    var a=pts[i],b=pts[i+1],d=dist(a,b);
+    if(d<140||!a.s||seen[a.s+'-'+a.chunk])continue;
+    var best=i,bd=d;
+    for(var j=i;j<pts.length-1&&pts[j].s===a.s;j++){var dj=dist(pts[j],pts[j+1]);if(dj>bd){bd=dj;best=j;}}
+    seen[a.s+'-'+a.chunk]=1;
+    var A=pts[best],B=pts[best+1],m=lerp(A,B,.5),br=bearing(A,B),rot=br-90;if(rot>90||rot<-90)rot+=180;
+    streetLabels.addLayer(L.marker(m,{icon:L.divIcon({className:'',html:'<div class="stl" style="transform:translate(-50%,-50%) rotate('+rot+'deg)">'+esc(A.s)+'</div>',iconSize:[0,0]}),interactive:false}));
+  }
+}
+
+// ---------- build route view
+function moveText(p){if(p.k==='station')return (p.t==='START'?'Start: ':p.t==='END'?'End: ':'Loop ')+p.label;return WORD[p.t]+' '+p.label;}
+function build(){
+  var cc=routeColors(route);
+  pts=(dir==='out'?route.out:(route['in']||route.out)).slice();
+  steps=[];cum=[0];total=0;
+  for(var i=0;i<pts.length;i++){
+    if(i>0){total+=dist(pts[i-1],pts[i]);cum.push(total);}
+    if(pts[i].k!=='via'){pts[i].pi=i;steps.push(pts[i]);}
+  }
+  for(var i2=0;i2<pts.length;i2++){
+    var j=i2;while(j<pts.length-1&&dist(pts[j],pts[j+1])<1)j++;
+    pts[i2].hd=(j<pts.length-1)?bearing(pts[j],pts[j+1]):bearing(pts[i2-1]||pts[0],pts[i2]);
+  }
+  for(var s=0;s<steps.length;s++)steps[s].toNext=(s<steps.length-1)?cum[steps[s+1].pi]-cum[steps[s].pi]:0;
+  drawRoute(cc);drawLandmarks();drawHooks(cc);buildList(cc);buildLegend(cc);
+  cur=0;progress=0;stopDrive();driveTarget=null;
+  placeBus(0);select(0,false);fitRoute();
+  applyLabels();updateSign();updateMchip();
+  if(mode==='game')gameIdle();
+}
+function drawRoute(cc){
+  layers.clearLayers();markers=[];layers.addTo(map);
+  var all=pts.map(function(p){return [p.lat,p.lng];});
+  layers.addLayer(L.polyline(all,{color:'#fff',weight:12,opacity:.95,lineJoin:'round',lineCap:'round'}));
+  for(var i=0;i<pts.length-1;i++){
+    var a=pts[i],b=pts[i+1],col=cc[a.chunk],d=dist(a,b);
+    if(d<1)continue;
+    layers.addLayer(L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:col,weight:6,opacity:1,lineJoin:'round',lineCap:'round'}));
+    if(a.bus)layers.addLayer(L.polyline([[a.lat,a.lng],[b.lat,b.lng]],{color:'#13202F',weight:2.5,opacity:.95,dashArray:'5 7',lineCap:'butt'}));
+    var n=Math.floor(d/260);
+    for(var k=1;k<=n;k++){
+      var f=k/(n+1),m=lerp(a,b,f),br=bearing(a,b);
+      layers.addLayer(L.marker(m,{icon:L.divIcon({className:'arr',html:'<svg viewBox="0 0 20 20" style="transform:rotate('+br.toFixed(0)+'deg)"><path d="M10 2.5 17 16 10 12.5 3 16Z" fill="#fff" stroke="'+col+'" stroke-width="2" stroke-linejoin="round"/></svg>',iconSize:[18,18],iconAnchor:[9,9]}),interactive:false,zIndexOffset:100}));
+    }
+  }
+  (route.branches||[]).forEach(function(br2){
+    layers.addLayer(L.polyline(br2.pts,{color:'#fff',weight:8,opacity:.9,lineCap:'round'}));
+    layers.addLayer(L.polyline(br2.pts,{color:'#0E7C86',weight:4,opacity:1,dashArray:'6 8',lineCap:'butt'}));
+    var last=br2.pts[br2.pts.length-1];
+    layers.addLayer(L.marker(last,{icon:L.divIcon({className:'',html:'<div class="chl pil" style="background:#0E7C86;transform:translate(-50%,-150%)">'+esc(br2.name)+'</div>',iconSize:[0,0]}),interactive:false}));
+  });
+  var byChunk={};
+  for(var i3=0;i3<pts.length;i3++){(byChunk[pts[i3].chunk]=byChunk[pts[i3].chunk]||[]).push(i3);}
+  Object.keys(byChunk).forEach(function(c){
+    var ids=byChunk[c],p=pts[ids[Math.floor(ids.length/2)]];
+    var off=(route.chunkOffsets&&route.chunkOffsets[c])||'translate(-50%,-190%)';
+    layers.addLayer(L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:'<div class="chl" style="background:'+cc[c]+';transform:'+off+'">'+esc(chunkName(route,c))+'</div>',iconSize:[0,0]}),interactive:false,zIndexOffset:50}));
+  });
+  steps.forEach(function(p,s){
+    var html,size;
+    if(p.k==='station'){html='<div class="sm">'+esc(p.short||p.label)+'</div>';size=[0,0];}
+    else{html='<div class="tm" style="background:'+cc[p.chunk]+'">'+s+'</div>';size=[26,26];}
+    var mk=L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:html,iconSize:size,iconAnchor:p.k==='station'?[0,0]:[13,13]}),zIndexOffset:300});
+    mk.bindTooltip(moveText(p),{className:'tt',direction:'top',offset:[0,-12]});
+    mk.on('click',function(){if(mode==='game')return;stopDrive();progress=cum[p.pi];placeBus(progress);select(s,true);});
+    layers.addLayer(mk);markers.push(mk);
+  });
+  if(busMarker)map.removeLayer(busMarker);
+  busMarker=L.marker([pts[0].lat,pts[0].lng],{icon:busIcon(pts[0].hd),zIndexOffset:1000,interactive:false}).addTo(map);
+}
+function busIcon(br){return L.divIcon({className:'',html:'<div class="bus"><svg viewBox="0 0 24 24" style="transform:rotate('+br.toFixed(0)+'deg)"><path d="M12 3 19 19 12 15 5 19Z" fill="#FFB100" stroke="#FFB100" stroke-width="1.5" stroke-linejoin="round"/></svg></div>',iconSize:[34,34],iconAnchor:[17,17]});}
+function drawLandmarks(){
+  lmLayer.clearLayers();
+  (route.landmarks||[]).forEach(function(l){
+    lmLayer.addLayer(L.marker([l.lat,l.lng],{icon:L.divIcon({className:'',html:'<div class="lm'+(l.water?' water':'')+'"><i></i><span>'+esc(l.n)+'</span></div>',iconSize:[0,0],iconAnchor:[0,0]}),interactive:false,zIndexOffset:20}));
+  });
+  if(document.getElementById('lmk').getAttribute('aria-pressed')==='true')lmLayer.addTo(map);
+}
+function drawHooks(cc){
+  hkLayer.clearLayers();
+  steps.forEach(function(p){
+    if(!p.hook)return;
+    hkLayer.addLayer(L.marker([p.lat,p.lng],{icon:L.divIcon({className:'',html:'<div class="hk">★ '+esc(p.hook)+'</div>',iconSize:[0,0],iconAnchor:[0,0]}),interactive:false,zIndexOffset:250}));
+  });
+  if(document.getElementById('hkBtn').getAttribute('aria-pressed')==='true')hkLayer.addTo(map);
+}
+function buildLegend(cc){
+  var h='';
+  Object.keys(cc).forEach(function(c){h+='<div><i style="background:'+cc[c]+'"></i>'+esc(chunkName(route,c))+'</div>';});
+  h+='<div><i class="dash"></i>Bus-only / station roads</div>';
+  if((route.branches||[]).length)h+='<div><i class="spur"></i>Request-only branch</div>';
+  h+='<div><span style="display:inline-block;width:18px;text-align:center;font-size:12px">▲</span>Direction of travel</div>';
+  h+='<div><span style="display:inline-block;width:18px;text-align:center">★</span>Memory hook</div>';
+  document.getElementById('legend').innerHTML='<button class="lg-btn" type="button" aria-expanded="false">≡ Legend</button><div class="lg-body">'+h+'</div>';
+  document.querySelector('.lg-btn').addEventListener('click',function(){var lg=document.getElementById('legend');lg.classList.toggle('open');this.setAttribute('aria-expanded',lg.classList.contains('open')?'true':'false');});
+}
+
+// ---------- study panel
+function select(s,fly){
+  cur=s;
+  var cc=routeColors(route),p=steps[s],col=cc[p.chunk];
+  markers.forEach(function(m,i){var el=m.getElement();if(!el)return;var d2=el.firstChild;if(d2)d2.classList.toggle('on',i===s);});
+  var card=document.getElementById('card');
+  card.style.setProperty('--c',col);
+  var eyebrow=chunkName(route,p.chunk)+' · '+dirName()+' · step '+s+' of '+(steps.length-1);
+  var move='<span class="move">'+G[p.t]+'<b>'+esc(moveText(p))+'</b></span>';
+  var prevS=s>0?steps[s-1].s:'';
+  var ba='';
+  if(p.k!=='station'||p.t==='END'){
+    ba='<div class="ba">'+(prevS?'<span class="st">'+esc(prevS)+'</span>':'')+G[p.t==='END'?'END':p.t]+
+       '<span class="st now">'+esc(p.s||p.label)+'</span></div>';
+  }
+  var head=p.s?'<div class="head">Now travelling <b>'+compassWord(p.hd)+'</b> ('+compass(p.hd)+')</div>':'<div class="head">You have arrived.</div>';
+  var hook=p.hook?'<div class="hook"><em>★ '+esc(p.hook)+'</em></div>':'';
+  var tags=(p.bus?'<span class="bo">Bus-only</span>':'')+(p.approx?'<span class="ap">Approx</span>':'')+(p.exc?'<span class="ap">Not a mirror</span>':'');
+  var next='';
+  if(s<steps.length-1){var q=steps[s+1];next='<div class="next">Next: <b>'+esc(moveText(q))+'</b> in about <b>'+fmt(p.toNext)+'</b></div>';}
+  card.innerHTML='<div class="num'+(p.k==='station'?' st':'')+'">'+(p.k==='station'?esc((p.short||p.label).slice(0,3)):s)+'</div>'+
+    '<div class="eyebrow">'+esc(eyebrow)+'</div>'+move+ba+head+hook+
+    ((tags||p.note)?'<div class="note">'+tags+esc(p.note||'')+'</div>':'')+next;
+  document.querySelectorAll('.li').forEach(function(li,i){li.classList.toggle('on',i===s);});
+  if(fly)map.flyTo([p.lat,p.lng],Math.max(map.getZoom(),16),{duration:.6});
+}
+function buildList(cc){
+  var list=document.getElementById('list');list.innerHTML='';
+  steps.forEach(function(p,s){
+    var li=document.createElement('div');li.className='li';li.style.setProperty('--c',cc[p.chunk]);
+    li.innerHTML='<span class="n'+(p.k==='station'?' st':'')+'">'+(p.k==='station'?esc((p.short||p.label).slice(0,2)):s)+'</span><span>'+esc(moveText(p))+'</span><span class="h">'+(p.s?compass(p.hd):'')+'</span>';
+    li.addEventListener('click',function(){stopDrive();progress=cum[p.pi];placeBus(progress);select(s,true);});
+    list.appendChild(li);
+  });
+}
+function fitRoute(){map.invalidateSize();map.fitBounds(L.latLngBounds(pts.map(function(p){return [p.lat,p.lng];})),{paddingTopLeft:[44,28],paddingBottomRight:[28,28]});zoomClass();}
+function dirName(){return (route.dirNames&&route.dirNames[dir])||(dir==='out'?'Outbound':'Return');}
+function updateSign(){
+  var sg=(route.sign&&route.sign[dir])||{code:route.id,dest:dirName(),sub:''};
+  document.getElementById('signCode').textContent=sg.code||route.id;
+  document.getElementById('signDest').innerHTML=esc(sg.dest||'')+(sg.sub?'<small>'+esc(sg.sub)+'</small>':'');
+  document.getElementById('dirOut').textContent=(route.dirNames&&route.dirNames.out)||'Outbound';
+  document.getElementById('dirIn').textContent=(route.dirNames&&route.dirNames['in'])||'Return';
+  document.getElementById('dirOut').setAttribute('aria-selected',dir==='out'?'true':'false');
+  document.getElementById('dirIn').setAttribute('aria-selected',dir==='in'?'true':'false');
+}
+
+// ---------- bus + drive loop
+function placeBus(m){
+  m=Math.max(0,Math.min(total,m));
+  var i=0;while(i<cum.length-2&&cum[i+1]<=m)i++;
+  var a=pts[i],b=pts[i+1],segLen=cum[i+1]-cum[i],f=segLen>0?(m-cum[i])/segLen:0;
+  var pos=lerp(a,b,f),br=segLen>0?bearing(a,b):a.hd;
+  busMarker.setLatLng([pos.lat,pos.lng]);busMarker.setIcon(busIcon(br));
+  return pos;
+}
+function stepAt(m){var s=0;for(var i=0;i<steps.length;i++){if(cum[steps[i].pi]<=m+0.5)s=i;}return s;}
+function tick(t){
+  if(!driving)return;
+  var dt=lastT?(t-lastT)/1000:0;lastT=t;
+  progress+=BASE_SPD*speed*dt;
+  var stop=driveTarget!==null?Math.min(driveTarget,total):total;
+  if(progress>=stop)progress=stop;
+  var pos=placeBus(progress);
+  if(mode==='study'){
+    var s=stepAt(progress);
+    if(s!==cur)select(s,false);
+    if(s<steps.length-1){var nx=document.querySelector('.card .next');if(nx){var q=steps[s+1];nx.innerHTML='Next: <b>'+esc(moveText(q))+'</b> in about <b>'+fmt(cum[q.pi]-progress)+'</b>';}}
+  }
+  if(follow)map.panTo([pos.lat,pos.lng],{animate:false});
+  if(progress>=stop){
+    var cb=driveCb;driveCb=null;stopDrive();
+    if(mode==='study'&&stop>=total)select(steps.length-1,false);
+    if(cb)cb();
+    return;
+  }
+  raf=requestAnimationFrame(tick);
+}
+function startDrive(){
+  if(driveTarget===null&&progress>=total)progress=0;
+  driving=true;lastT=0;
+  document.getElementById('play').textContent='⏸ Pause';
+  if(follow){var pos=placeBus(progress);map.setView([pos.lat,pos.lng],Math.max(map.getZoom(),16),{animate:false});}
+  raf=requestAnimationFrame(tick);
+}
+function stopDrive(){driving=false;if(raf)cancelAnimationFrame(raf);raf=null;document.getElementById('play').textContent='▶ Drive it';}
+function driveTo(target,cb){driveTarget=target;driveCb=cb;startDrive();}
+
+// ---------- game mode
+var g=null;
+function bestKey(){return 'rt.best.'+route.id+'.'+dir;}
+function getBest(){return store.get(bestKey(),null);}
+function updateMchip(){
+  var b=getBest(),el=document.getElementById('mchip');
+  if(!b){el.textContent='No runs yet';return;}
+  el.innerHTML='Best '+b.score+'/'+b.total+(b.perfectRuns>=3?' · ★ MASTERED':(b.perfectRuns>0?' · '+b.perfectRuns+'★':''));
+}
+function flipLabel(l){
+  if(l.indexOf('LEFT')>-1)return l.replace('LEFT','RIGHT');
+  if(l.indexOf('RIGHT')>-1)return l.replace('RIGHT','LEFT');
+  if(l.indexOf('STRAIGHT on ')===0)return (Math.random()<.5?'LEFT on ':'RIGHT on ')+l.slice(12);
+  return null;
+}
+function gameQuestions(){return steps.filter(function(p){return p.k==='turn';});}
+function gOptions(q){
+  var correct=moveText(q),used={};used[correct]=1;
+  var opts=[correct],f=flipLabel(correct);
+  if(f&&!used[f]){opts.push(f);used[f]=1;}
+  var pool=shuffle(gameQuestions().map(moveText));
+  for(var i=0;i<pool.length&&opts.length<4;i++){if(!used[pool[i]]){used[pool[i]]=1;opts.push(pool[i]);}}
+  return shuffle(opts);
+}
+function gameIdle(){
+  stopDrive();driveTarget=null;
+  var qs=gameQuestions(),b=getBest();
+  var el=document.getElementById('game');
+  el.innerHTML='<div class="gcard"><h3>Drive it from memory</h3>'+
+    '<p>'+esc(route.name)+' · '+esc(dirName())+'. The bus rolls the route and stops before every one of the <b>'+qs.length+'</b> moves — you call each one. '+
+    (b?('Best so far: <b>'+b.score+'/'+b.total+'</b>'+(b.perfectRuns?(' · '+b.perfectRuns+' perfect run'+(b.perfectRuns>1?'s':'')+(b.perfectRuns>=3?' — ★ mastered':' (3 = mastered)')):'')+'.'):'Three perfect runs = mastered.')+
+    '</p><p>Make it harder: switch the basemap to <b>Sat</b>, or turn off <b>Aa</b> street names and ★ hooks.</p>'+
+    '<button class="gbig" id="gStart" type="button">Start the run</button></div>';
+  document.getElementById('gStart').addEventListener('click',gameStart);
+}
+function gameStart(){
+  g={qs:gameQuestions(),i:0,score:0,miss:[],t0:Date.now(),answered:false};
+  map.removeLayer(hkLayer);
+  progress=0;placeBus(0);
+  map.setView([pts[0].lat,pts[0].lng],16.4,{animate:false});
+  follow=true;document.getElementById('follow').setAttribute('aria-pressed','true');
+  speed=3;
+  gameAdvance();
+}
+function approachOf(q){var prevPi=q.pi>0?q.pi-1:0;return Math.max(cum[q.pi]-90,cum[prevPi]+1,progress);}
+function gameAdvance(){
+  if(!g)return;
+  if(g.i>=g.qs.length){driveTo(total,gameDone);gameTravelUI('Rolling to the end of the line…');return;}
+  var q=g.qs[g.i];
+  gameTravelUI('Rolling… next decision coming up.');
+  driveTo(approachOf(q),function(){gameAsk(q);});
+}
+function gameTravelUI(txt){
+  document.getElementById('game').innerHTML='<div class="gcard"><div class="gmeta"><span>Turn '+(Math.min(g.i+1,g.qs.length))+' of '+g.qs.length+'</span><b>'+g.score+' pt'+(g.score===1?'':'s')+'</b></div><p style="margin:0">'+esc(txt)+'</p></div>';
+}
+function gameAsk(q){
+  g.answered=false;
+  var onStreet=q.pi>0?(function(){for(var i=q.pi-1;i>=0;i--){if(pts[i].s)return pts[i].s;}return '';})():'';
+  var opts=gOptions(q);
+  var el=document.getElementById('game');
+  el.innerHTML='<div class="gcard"><div class="gmeta"><span>Turn '+(g.i+1)+' of '+g.qs.length+'</span><b>'+g.score+' pt'+(g.score===1?'':'s')+'</b></div>'+
+    '<div class="gwhere">You\u2019re on <b>'+esc(onStreet||'the road')+'</b>, coming up on the intersection.</div>'+
+    '<div class="gopts" id="gopts"></div><div id="gfb"></div></div>';
+  var box=document.getElementById('gopts');
+  opts.forEach(function(o,idx){
+    var b=document.createElement('button');
+    b.type='button';b.className='gopt';
+    b.innerHTML='<span class="k">'+(idx+1)+'</span><span></span>';
+    b.lastChild.textContent=o;
+    b.addEventListener('click',function(){gamePick(q,o,b);});
+    box.appendChild(b);
+  });
+  map.flyTo([q.lat,q.lng],Math.max(map.getZoom(),16.4),{duration:.4});
+}
+function gamePick(q,choice,btn){
+  if(g.answered)return;g.answered=true;
+  var correct=moveText(q),ok=choice===correct;
+  if(ok)g.score++;else g.miss.push({q:q,picked:choice});
+  document.querySelectorAll('.gopt').forEach(function(b){
+    b.disabled=true;
+    if(b.lastChild.textContent===correct)b.classList.add('right');
+    else if(b===btn)b.classList.add('wrong');
+  });
+  var fb=document.getElementById('gfb');
+  fb.innerHTML='<div class="gfb '+(ok?'ok':'bad')+'"><b>'+(ok?'\u2713 That\u2019s the move.':'\u2717 It\u2019s '+esc(correct)+'.')+'</b>'+
+    (q.hook?'<br><span class="hint">★ '+esc(q.hook)+'</span>':'')+
+    (q.exc?'<br><span class="hint">Mirror-breaker: the return differs here.</span>':'')+
+    '</div><button class="gbig" id="gNext" type="button">'+(g.i+1>=g.qs.length?'Roll to the end':'Continue')+'</button>'+
+    '<button class="gghost" id="gQuit" type="button">End run</button>';
+  document.getElementById('gNext').addEventListener('click',function(){
+    g.i++;progress=cum[q.pi];placeBus(progress);gameAdvance();
+  });
+  document.getElementById('gQuit').addEventListener('click',gameDone);
+}
+function gameDone(){
+  if(!g)return;
+  stopDrive();
+  if(document.getElementById('hkBtn').getAttribute('aria-pressed')==='true')hkLayer.addTo(map);
+  var n=g.i>=g.qs.length?g.qs.length:g.i+(g.answered?1:0);
+  var full=n>=g.qs.length;
+  var secs=Math.round((Date.now()-g.t0)/1000),mm=Math.floor(secs/60),ss=('0'+secs%60).slice(-2);
+  var perfect=full&&g.miss.length===0;
+  var b=getBest()||{score:0,total:g.qs.length,perfectRuns:0};
+  if(full){
+    b.total=g.qs.length;
+    if(g.score>b.score)b.score=g.score;
+    if(perfect)b.perfectRuns=(b.perfectRuns||0)+1;
+    store.set(bestKey(),b);
+  }
+  updateMchip();
+  var el=document.getElementById('game');
+  var missHtml='';
+  if(g.miss.length){
+    missHtml='<ul class="gmiss">'+g.miss.map(function(m2){return '<li><b>'+esc(moveText(m2.q))+'</b><span>you said '+esc(m2.picked)+(m2.q.hook?' · ★ '+esc(m2.q.hook):'')+'</span></li>';}).join('')+'</ul>';
+  }
+  el.innerHTML='<div class="gcard"><div class="gmeta"><span>'+(full?'Run complete':'Run ended early')+' · '+mm+':'+ss+'</span>'+(perfect?'<span class="gstar">'+((b.perfectRuns>=3)?'★ MASTERED':'★ Perfect run '+b.perfectRuns+'/3')+'</span>':'')+'</div>'+
+    '<div class="gscore"><span class="n">'+g.score+'</span><span class="of">of '+g.qs.length+'</span></div>'+
+    (perfect?'<p>Clean. Do it again on satellite with the names off.</p>':(g.miss.length?'<p>The misses below are your Sunday list.</p>':'<p>Finish a full run to set a best score.</p>'))+
+    missHtml+
+    '<button class="gbig" id="gAgain" type="button">Run it again</button>'+
+    '<button class="gghost" id="gBack" type="button">Back to study</button></div>';
+  document.getElementById('gAgain').addEventListener('click',gameStart);
+  document.getElementById('gBack').addEventListener('click',function(){setMode('study');});
+  g=null;
+}
+
+// ---------- modes / wiring
+function setMode(m){
+  if(m===mode)return;
+  mode=m;g=null;stopDrive();driveTarget=null;
+  if(m==='study'&&document.getElementById('hkBtn').getAttribute('aria-pressed')==='true')hkLayer.addTo(map);
+  document.getElementById('tabStudy').setAttribute('aria-selected',m==='study'?'true':'false');
+  document.getElementById('tabGame').setAttribute('aria-selected',m==='game'?'true':'false');
+  document.getElementById('study').hidden=m!=='study';
+  document.getElementById('game').hidden=m!=='game';
+  if(m==='game')gameIdle();
+  else{progress=cum[steps[cur].pi]||0;placeBus(progress);select(cur,false);}
+}
+function setDir(d){if(d===dir)return;dir=d;savePrefs();build();}
+function setRoute(id){route=findRoute(id);delete route._cc;if(!(route['in'])&&dir==='in')dir='out';savePrefs();fillPicker();build();}
+function fillPicker(){
+  var sel=document.getElementById('routeSel');sel.innerHTML='';
+  allRoutes().forEach(function(r){
+    var o=document.createElement('option');o.value=r.id;o.textContent=r.name;if(r.id===route.id)o.selected=true;sel.appendChild(o);
+  });
+  var add=document.createElement('option');add.value='__add';add.textContent='＋ Add route…';sel.appendChild(add);
+}
+document.getElementById('routeSel').addEventListener('change',function(){
+  if(this.value==='__add'){openDlg();this.value=route.id;return;}
+  setRoute(this.value);
+});
+document.getElementById('tabStudy').addEventListener('click',function(){setMode('study');});
+document.getElementById('tabGame').addEventListener('click',function(){setMode('game');});
+document.getElementById('dirOut').addEventListener('click',function(){setDir('out');});
+document.getElementById('dirIn').addEventListener('click',function(){if(route['in'])setDir('in');});
+document.getElementById('sign').addEventListener('click',function(){if(route['in'])setDir(dir==='out'?'in':'out');});
+document.getElementById('play').addEventListener('click',function(){if(mode!=='study')return;driveTarget=null;driveCb=null;driving?stopDrive():startDrive();});
+document.getElementById('reset').addEventListener('click',function(){if(mode!=='study')return;stopDrive();driveTarget=null;progress=0;placeBus(0);select(0,true);});
+document.querySelectorAll('[data-spd]').forEach(function(b){b.addEventListener('click',function(){speed=+b.dataset.spd;document.querySelectorAll('[data-spd]').forEach(function(x){x.setAttribute('aria-pressed',x===b?'true':'false');});});});
+document.getElementById('prev').addEventListener('click',function(){stopDrive();driveTarget=null;var s=Math.max(0,cur-1);progress=cum[steps[s].pi];placeBus(progress);select(s,true);});
+document.getElementById('next').addEventListener('click',function(){stopDrive();driveTarget=null;var s=Math.min(steps.length-1,cur+1);progress=cum[steps[s].pi];placeBus(progress);select(s,true);});
+document.getElementById('toggleList').addEventListener('click',function(){var l=document.getElementById('list');l.classList.toggle('open');this.textContent=l.classList.contains('open')?'Hide list':'All turns';});
+document.getElementById('fit').addEventListener('click',function(){fitRoute();});
+document.getElementById('follow').addEventListener('click',function(){follow=!follow;this.setAttribute('aria-pressed',follow?'true':'false');});
+document.getElementById('lmk').addEventListener('click',function(){var on=this.getAttribute('aria-pressed')!=='true';this.setAttribute('aria-pressed',on?'true':'false');if(on)lmLayer.addTo(map);else map.removeLayer(lmLayer);});
+document.getElementById('hkBtn').addEventListener('click',function(){var on=this.getAttribute('aria-pressed')!=='true';this.setAttribute('aria-pressed',on?'true':'false');if(on)hkLayer.addTo(map);else map.removeLayer(hkLayer);});
+document.getElementById('lblBtn').addEventListener('click',function(){labelsManual=!labelsOn();applyLabels();});
+document.getElementById('baseBtn').addEventListener('click',function(){setBase(base==='map'?'sat':base==='sat'?'hyb':'map');});
+map.on('dragstart',function(){if(driving){follow=false;document.getElementById('follow').setAttribute('aria-pressed','false');}});
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT')return;
+  if(mode==='game'){if(e.key>='1'&&e.key<='4'){var b=document.querySelectorAll('.gopt')[+e.key-1];if(b&&!b.disabled)b.click();}return;}
+  if(e.target.tagName==='BUTTON'&&e.key===' ')return;
+  if(e.key==='ArrowRight')document.getElementById('next').click();
+  else if(e.key==='ArrowLeft')document.getElementById('prev').click();
+  else if(e.key===' '){e.preventDefault();document.getElementById('play').click();}
+});
+window.addEventListener('resize',function(){map.invalidateSize();});
+
+// ---------- add-route dialog
+function openDlg(){document.getElementById('ovl').classList.add('open');document.getElementById('jsonErr').textContent='';renderCustomList();}
+function closeDlg(){document.getElementById('ovl').classList.remove('open');}
+function renderCustomList(){
+  var el=document.getElementById('customList'),cr=customRoutes();
+  el.innerHTML=cr.length?'<p style="margin:0 0 4px"><b>Your added routes</b></p>':'';
+  cr.forEach(function(r,i){
+    var row=document.createElement('div');row.className='cr';
+    row.innerHTML='<span>'+esc(r.name)+'</span>';
+    var del=document.createElement('button');del.type='button';del.textContent='Delete';
+    del.addEventListener('click',function(){
+      var list=customRoutes();list.splice(i,1);store.set('rt.routes',list);
+      if(route.id===r.id)route=ROUTE19;
+      fillPicker();build();renderCustomList();
+    });
+    row.appendChild(del);el.appendChild(row);
+  });
+}
+document.getElementById('closeDlg').addEventListener('click',closeDlg);
+document.getElementById('ovl').addEventListener('click',function(e){if(e.target===this)closeDlg();});
+document.getElementById('loadTpl').addEventListener('click',function(){
+  var copy=JSON.parse(JSON.stringify(route));delete copy._cc;delete copy.builtin;copy.id=copy.id+'-copy';copy.name=copy.name+' (copy)';
+  document.getElementById('routeJson').value=JSON.stringify(copy,null,1);
+});
+document.getElementById('saveRoute').addEventListener('click',function(){
+  var errEl=document.getElementById('jsonErr'),o;
+  try{o=JSON.parse(document.getElementById('routeJson').value);}catch(e){errEl.textContent='Invalid JSON: '+e.message;return;}
+  var err=validateRoute(o);
+  if(err){errEl.textContent=err;return;}
+  var list=customRoutes().filter(function(r){return r.id!==o.id;});
+  list.push(o);store.set('rt.routes',list);
+  errEl.textContent='';closeDlg();setRoute(o.id);
+});
+
+// ---------- boot
+document.getElementById('baseBtn').textContent=BASES[base].name;
+setBase(base,true);
+fillPicker();
+build();
+setTimeout(fitRoute,150);
+})();
+</script>
+</body>
+</html>
